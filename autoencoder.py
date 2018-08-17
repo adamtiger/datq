@@ -5,11 +5,17 @@ import torch.optim as optim
 
 class JacobianRegularizer(nn.Module):
 
-    def __init__(self):
+    def __init__(self, w):
         super(JacobianRegularizer, self).__init__()
+        self.w = w
 
     def forward(self, input):
-        self.loss = 0
+        sx = F.softmax(input)
+        self.loss = ( sx.mul(1.0 - sx)
+                      .diag()
+                      .mm(self.w)
+                      .norm()
+                    )
         self.value = input
         return input
 
@@ -39,11 +45,13 @@ class BasicCae:
     def __create_model(self):
         # layers which will be used later on
         self.prep = PreprocessAtari()
-        self.jac_reg = JacobianRegularizer()
+        self.lin_encode = nn.Linear(self.input_size, self.feature_size)
+        pms = [p for p in self.lin_encode.parameters()]
+        self.jac_reg = JacobianRegularizer(pms[0])
 
         model = nn.Sequential()
         model.add_module('Preprocessing', self.prep)
-        model.add_module('Linear_encode', nn.Linear(self.input_size, self.feature_size))
+        model.add_module('Linear_encode', self.lin_encode)
         model.add_module('Sigmoid_encode', nn.Sigmoid())
         model.add_module('JacobyRegularization', self.jac_reg)
         model.add_module('Linear_decode', nn.Linear(self.feature_size, self.input_size))
