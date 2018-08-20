@@ -19,18 +19,6 @@ class JacobianRegularizer(nn.Module):
         self.value = input
         return input
 
-class PreprocessAtari(nn.Module):
-
-    def __init__(self, crop_h=(10, 210), crop_v=(20, 140)):
-        super(PreprocessAtari, self).__init__()
-        self.crop_h = crop_h
-        self.crop_v = crop_v
-
-    def forward(self, input):
-        # steps: gray_scale, stack, crop, scale
-        return input
-
-
 class BasicCae:
  
     def __init__(self, epochs, lr, input_size=86*86*4, feature_size=1500):
@@ -44,13 +32,11 @@ class BasicCae:
     
     def __create_model(self):
         # layers which will be used later on
-        self.prep = PreprocessAtari()
         self.lin_encode = nn.Linear(self.input_size, self.feature_size)
         pms = [p for p in self.lin_encode.parameters()]
         self.jac_reg = JacobianRegularizer(pms[0])
 
         model = nn.Sequential()
-        model.add_module('Preprocessing', self.prep)
         model.add_module('Linear_encode', self.lin_encode)
         model.add_module('Sigmoid_encode', nn.Sigmoid())
         model.add_module('JacobyRegularization', self.jac_reg)
@@ -65,7 +51,7 @@ class BasicCae:
         for epoch in range(self.epochs):
             for i, data in enumerate(X, 0):
                 x = data # input is the same as the output (autoencoder)
-                y_real = self.prep(x)
+                y_real = x
 
                 y_model = self.model(x)
 
