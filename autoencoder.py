@@ -2,68 +2,93 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.autograd import grad 
+import torch.utils.data as DT
 
-class JacobianRegularizer(nn.Module):
 
-    def __init__(self, w):
-        super(JacobianRegularizer, self).__init__()
-        self.w = w
+def get_device(cpu_anyway=False, gpu_id=0):
+    if cpu_anyway:
+        device = torch.device('cpu')
+    else:
+        device = torch.device("cuda:" + str(gpu_id) if torch.cuda.is_available() else "cpu")
+    return device
 
-    def forward(self, input):
-        sx = F.softmax(input)
-        self.loss = ( sx.mul(1.0 - sx)
-                      .diag()
-                      .mm(self.w)
-                      .norm()
-                    )
-        self.value = input
-        return input
 
-class BasicCae:
- 
-    def __init__(self, epochs, lr, input_size=86*86*4, feature_size=1500):
-        self.model = self.__create_model()
+def calculate_jacobi_term(x, y_enc, features):
+    jacobi_term = 0.0
+    for b in range(y_enc.size(0)):
+        for i in range(features):
+            gradients = grad(y_enc[b, i], x, retain_graph=True, create_graph=True)[0]
+            jacobi_term += gradients.pow(2).sum()
+            print("In Jacobi: [%d]\r"%i, end='')
+    print('\n')
+    return jacobi_term
+
+
+class TrainLoader:
+
+    def __init__(self, images, batch_size):
+        self.images = images
+        self.batch_size = batch_size
+    
+    def get_trainloader(self):
+        tensors = torch.Tensor(self.images)
+        dataset = DT.TensorDataset(tensors)
+        return DT.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+
+class Train:
+
+    def __init__(self, model, device, epochs, lr):
+        self.model = model
+        self.model.to(device)
+        self.device = device
         self.epochs = epochs
-        self.input_size = input_size
-        self.feature_size = feature_size
-
         self.criterion = nn.MSELoss()
-        self.optimizer = optim.Adam(self.model.parameters, lr=lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
     
-    def __create_model(self):
-        # layers which will be used later on
-        self.lin_encode = nn.Linear(self.input_size, self.feature_size)
-        pms = [p for p in self.lin_encode.parameters()]
-        self.jac_reg = JacobianRegularizer(pms[0])
-
-        model = nn.Sequential()
-        model.add_module('Linear_encode', self.lin_encode)
-        model.add_module('Sigmoid_encode', nn.Sigmoid())
-        model.add_module('JacobyRegularization', self.jac_reg)
-        model.add_module('Linear_decode', nn.Linear(self.feature_size, self.input_size))
-        model.add_module('Sigmoid_decode', nn.Sigmoid())
-        return model
-    
-    def fit(self, X):
+    def fit(self, X, callback=None):
         '''
-        X - a trainloader for getting the input frames batch e.g: (N, 4, 84, 84, 4)
+        X - a trainloader for getting the input frames batch e.g: (N, 84*84*4)
         '''
         for epoch in range(self.epochs):
             for i, data in enumerate(X, 0):
-                x = data # input is the same as the output (autoencoder)
+                x = data[0]
+                x.requires_grad=True
+                x = x.to(self.device) # input is the same as the output (autoencoder)
                 y_real = x
-
                 y_model = self.model(x)
-
-                loss = self.criterion(y_real, y_model) + self.jac_reg.loss
+                loss = self.criterion(y_real, y_model) + self.model.jac_reg
                 loss.backward()
                 self.optimizer.step()
 
+                print("Iteration: [%d]\r"%i,end='')
+
                 # administration for showing loss and so on
+                if callback is not None:
+                    callback(epoch, i, loss.item(), x.size(0))
+
+
+class BasicCae(nn.Module):
+ 
+    def __init__(self, input_size=84*84*4, feature_size=1500):
+        super(BasicCae, self).__init__()
+
+        self.input_size = input_size
+        self.feature_size = feature_size
+        self.jac_reg = 0.0
+        self.lin_enc = nn.Linear(self.input_size, self.feature_size)
+        self.lin_dec = nn.Linear(self.feature_size, self.input_size)
+    
+    def forward(self, x): # should be x.requires_grad=True
+        self.y_enc = nn.Sigmoid()(self.lin_enc(x))
+        self.jac_reg = calculate_jacobi_term(x, self.y_enc, self.feature_size)
+        y_out = nn.Sigmoid()(self.lin_dec(self.y_enc))
+        return y_out
     
     def calculate_feature(self, x):
-        self.model(x) # we do not need the output just the feature at the middle
-        return self.jac_reg.value
+        self(x) # we do not need the output just the feature at the middle
+        return self.jac_reg
 
 
 class CNNCae:
