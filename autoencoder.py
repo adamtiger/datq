@@ -14,17 +14,6 @@ def get_device(cpu_anyway=False, gpu_id=0):
     return device
 
 
-def calculate_jacobi_term(x, y_enc, features):
-    jacobi_term = 0.0
-    for b in range(y_enc.size(0)):
-        for i in range(features):
-            gradients = grad(y_enc[b, i], x, retain_graph=True, create_graph=True)[0]
-            jacobi_term += gradients.pow(2).sum()
-            print("In Jacobi: [%d]\r"%i, end='')
-    print('\n')
-    return jacobi_term
-
-
 class TrainLoader:
 
     def __init__(self, images, batch_size):
@@ -58,7 +47,7 @@ class Train:
                 x = x.to(self.device) # input is the same as the output (autoencoder)
                 y_real = x
                 y_model = self.model(x)
-                loss = self.criterion(y_real, y_model) + self.model.jac_reg
+                loss = self.criterion(y_real, y_model) + self.model.reg_loss
                 loss.backward()
                 self.optimizer.step()
 
@@ -76,23 +65,64 @@ class BasicCae(nn.Module):
 
         self.input_size = input_size
         self.feature_size = feature_size
-        self.jac_reg = 0.0
+        self.reg_loss = 0.0
         self.lin_enc = nn.Linear(self.input_size, self.feature_size)
         self.lin_dec = nn.Linear(self.feature_size, self.input_size)
     
     def forward(self, x): # should be x.requires_grad=True
         self.y_enc = nn.Sigmoid()(self.lin_enc(x))
-        self.jac_reg = calculate_jacobi_term(x, self.y_enc, self.feature_size)
+        self.reg_loss = self.jacobi_loss_calc()
         y_out = nn.Sigmoid()(self.lin_dec(self.y_enc))
         return y_out
+
+    def jacobi_loss_calc(self):
+        y = self.y_enc
+        sigmoid_der = y * (1-y)
+        w = list(self.lin_enc.parameters())[0]
+        sigmoid_der_2 = sigmoid_der**2
+        w_2 = w**2
+        return sigmoid_der_2.matmul(w_2).sum()
     
     def calculate_feature(self, x):
         self(x) # we do not need the output just the feature at the middle
-        return self.jac_reg
+        return self.y_enc
 
 
-class CNNCae:
-    pass
+class CNNSparseAE(nn.Module):
+    
+    def __init__(self):
+        # encoder part
+        self.conv1 = nn.Conv2d(4, 64, (3, 3), stride=3)
+        self.conv2 = nn.Conv2d(64, 128, (4, 4), stride=4)
+        self.fc_e = nn.Linear(6272, 2500, bias=True)
+
+        self.fc_d = nn.Linear(2500, 6272, bias=True)
+        self.deconv1 = nn.ConvTranspose2d(128, 64, (4, 4), stride=4)
+        self.deconv2 = nn.ConvTranspose2d(64, 4, (3, 3), stride=3)
+
+        self.u = 0.0
+        self.reg_loss = 0.0
+
+    def forward(self, x):
+        # encoding
+        x_ = F.relu(self.conv1(x))
+        x_ = F.relu(self.conv2(x_))
+        x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
+        self.u = F.softmax(self.fc_e(x_))
+        
+        # decoding
+        y_ = F.tanh(self.fc_d(self.u))
+        y_ = F.relu(self.deconv1(y_))
+        return F.relu(self.deconv2(y_))
+        
+    def calculate_reg_loss(self, beta, rho):
+        rho_ = self.u.mean(0) # average activations for each node
+        kl_div = rho_ * torch.log(rho_/rho)
+        return beta * kl_div.sum()
+    
+    def calculate_feature(self, x):
+        self(x) # we do not need the output just the feature at the middle
+        return self.u
 
 class EdgedetectorAE:
     pass
