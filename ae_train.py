@@ -27,7 +27,7 @@ def preprocess(image, threshold):
     # grayscale
     temp_ = rgb2grey(image)
     # crop
-    temp_ = crop(temp_, ((20, 10), (0, 0)))
+    temp_ = crop(temp_, ((20, 10), (0, 0))) # empirical investigation (crops the playing area)
     # rescale
     temp_ = resize(temp_, (84, 84))
     # binary
@@ -55,7 +55,7 @@ def concatenate(images, dones, length=4):
                 conc_images.append(cube)
             cube = np.zeros((length, rows, cols))
             valid = True
-        cube[i % 4, :, :] = img
+        cube[i % length, :, :] = img
         valid = valid and not dones[i]
     return conc_images
 
@@ -148,7 +148,10 @@ def followup_performance(epoch, i, loss_rec_item, loss_reg_item, x_size):
     itr += 1
 
 def plot_learning_curve(file):
-
+    '''
+    Plots the total loss at each iteration.
+    file - the csv file containing (iteration, loss_rec, loss_reg)
+    '''
     df = pd.read_csv(file)
     df['loss'] = df['loss_reg'] + df['loss_rec']
     df.plot(x='iteration', y='loss', kind='scatter')

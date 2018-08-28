@@ -8,6 +8,10 @@ import torch.utils.data as DT
 
 
 def get_device(cpu_anyway=False, gpu_id=0):
+    '''
+    Sets a concrete device to use.
+    gpu_id - the id is the same as the id in nvidia-smi
+    '''
     if cpu_anyway:
         device = torch.device('cpu')
     else:
@@ -105,12 +109,18 @@ class BasicCae(nn.Module):
 
 
 class CNNSparseAE(nn.Module):
-    
+    '''
+    This encode is based on a CNN and a KL divergence 
+    which ensures sparse encoding.
+    In case of a new Sparse encoder, just change this one
+    and use a clear commit or tag in git.
+    Save the configuration in each run.
+    '''
     def __init__(self, beta, rho):
         super(CNNSparseAE, self).__init__()
         
-        self.beta = beta
-        self.rho = rho
+        self.beta = beta # the factor for the regularization term
+        self.rho = rho   # the expected average activation in the encoder layer
 
         # encoder part
         self.conv1 = nn.Conv2d(4, 64, (3, 3), stride=3)
@@ -143,7 +153,7 @@ class CNNSparseAE(nn.Module):
     def calculate_reg_loss(self):
         rho_ = self.u.mean(0) # average activations for each node
         rho = self.rho
-        kl_div = rho * torch.log(rho/rho_) + (1-rho) * torch.log((1-rho)/(1-rho_))
+        kl_div = rho * torch.log(rho/rho_) + (1-rho) * torch.log((1-rho)/(1-rho_)) # KL divergence for avg. activation
         return self.beta * kl_div.sum()
     
     def calculate_feature(self, x):

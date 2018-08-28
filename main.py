@@ -1,8 +1,7 @@
 import ae_train
 from autoencoder import CNNSparseAE
 
-# this is for testing the modules
-# later for managing the experiments
+# managing the experiments
 lr = 1e-3
 iterations = 50
 epochs = 2
