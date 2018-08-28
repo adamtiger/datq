@@ -27,7 +27,7 @@ def preprocess(image, threshold):
     # grayscale
     temp_ = rgb2grey(image)
     # crop
-    temp_ = crop(temp_, ((20, 0), (0, 0)))
+    temp_ = crop(temp_, ((20, 10), (0, 0)))
     # rescale
     temp_ = resize(temp_, (84, 84))
     # binary
@@ -71,7 +71,7 @@ def generate_batch(batch_size, exploration_policy=None, environment='Breakout-v0
     '''
     # create the environment and reset
     env = gym.make(environment)
-    state, _, done, _ = env.reset()
+    state = env.reset()
     
     # use random exploration if nothing is provided
     if exploration_policy is None:
@@ -99,7 +99,7 @@ def train_ae(ae_model, lr, iterations, epochs, outer_batch, inner_batch, flat=Fa
     
     for i in range(iterations):
         # create a batch for the outer loop
-        images, dones = random_image(outer_batch) # generate_batch(outer_batch, environment='Breakout-v0')
+        images, dones = generate_batch(outer_batch, environment='Breakout-v0') # random_image(outer_batch)
         images = preprocess_batch(images)
         images = concatenate(images, dones)
         if flat:
@@ -109,6 +109,7 @@ def train_ae(ae_model, lr, iterations, epochs, outer_batch, inner_batch, flat=Fa
         trainer = Train(ae_model, device, epochs, lr)
         trainer.fit(trainloader, callback=callback)
         trainer.save("weights/model_weights" + str(i) + ".pytorch")
+        print("Iteration: [%d]"%i)
     
     return ae_model
 

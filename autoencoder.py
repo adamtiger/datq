@@ -1,4 +1,5 @@
 import torch
+import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -11,6 +12,7 @@ def get_device(cpu_anyway=False, gpu_id=0):
         device = torch.device('cpu')
     else:
         device = torch.device("cuda:" + str(gpu_id) if torch.cuda.is_available() else "cpu")
+    cuda.set_device(gpu_id)
     return device
 
 
@@ -56,7 +58,8 @@ class Train:
                 # administration for showing loss and so on
                 if callback is not None:
                     callback(epoch, i, loss_reconst.item(), loss_reg.item(), x.size(0))
-            print("Epoch (done): [%d]\r"%i,end='')
+            print("Epoch (done): [%d]\r"%epoch, end='')
+        print("\n")
     
     def save(self, path):
         torch.save(self.model.state_dict(), path)
