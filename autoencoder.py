@@ -59,6 +59,11 @@ class Train:
 
 
 class BasicCae(nn.Module):
+    '''
+    This is a simple Contractive Autoencoder.
+    The imeplementation uses a direct calculation of the 
+    Frobenius norm instead of using the autograd functions. 
+    '''
  
     def __init__(self, input_size=84*84*4, feature_size=1500):
         super(BasicCae, self).__init__()

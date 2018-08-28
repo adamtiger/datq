@@ -16,7 +16,7 @@ def random_image(n, size=(210, 160, 3)):
     return images, dones
 
 
-def preprocess(image, normalize=False):
+def preprocess(image, threshold):
     '''
     Preprocesses an image from Atari.
     Grayscale, crop, resize, (normalize)
@@ -27,17 +27,13 @@ def preprocess(image, normalize=False):
     temp_ = crop(temp_, ((20, 0), (0, 0)))
     # rescale
     temp_ = resize(temp_, (84, 84))
-    # normalize
-    if normalize:
-        dev = temp_ - np.sum(temp_)/(np.size(temp_))
-        std = np.sqrt(np.sum(dev * dev)/np.size(dev))
-        temp_ = dev / std
-
+    # binary
+    temp_ = (temp_ > threshold).astype(np.float32)
     return temp_
 
 
-def preprocess_batch(images, normalize=False):
-    return list(map(lambda img: preprocess(img, normalize), images))
+def preprocess_batch(images, threshold=20):
+    return list(map(lambda img: preprocess(img, threshold), images))
 
 
 def concatenate(images, dones, length=4):
