@@ -33,7 +33,7 @@ class Train:
         self.model.to(device)
         self.device = device
         self.epochs = epochs
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.BCELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
     
     def fit(self, X, callback=None):
@@ -43,26 +43,33 @@ class Train:
         for epoch in range(self.epochs):
             for i, data in enumerate(X, 0):
                 x = data[0]
-                x.requires_grad=True
                 x = x.to(self.device) # input is the same as the output (autoencoder)
                 y_real = x
                 y_model = self.model(x)
-                loss = self.criterion(y_real, y_model) + self.model.reg_loss
+
+                loss_reconst = self.criterion(y_model, y_real)
+                loss_reg = self.model.reg_loss
+                loss = loss_reconst + loss_reg
                 loss.backward()
                 self.optimizer.step()
 
-                print("Iteration: [%d]\r"%i,end='')
-
                 # administration for showing loss and so on
                 if callback is not None:
-                    callback(epoch, i, loss.item(), x.size(0))
+                    callback(epoch, i, loss_reconst.item(), loss_reg.item(), x.size(0))
+            print("Epoch (done): [%d]\r"%i,end='')
+    
+    def save(self, path):
+        torch.save(self.model.state_dict(), path)
 
 
 class BasicCae(nn.Module):
     '''
     This is a simple Contractive Autoencoder.
     The imeplementation uses a direct calculation of the 
-    Frobenius norm instead of using the autograd functions. 
+    Frobenius norm instead of using the autograd functions.
+    Unfortunately, to create deeper CAE requires to calculate 
+    the gradients manually (or analytically) and this is not
+    flexible.
     '''
  
     def __init__(self, input_size=84*84*4, feature_size=1500):
@@ -75,6 +82,7 @@ class BasicCae(nn.Module):
         self.lin_dec = nn.Linear(self.feature_size, self.input_size)
     
     def forward(self, x): # should be x.requires_grad=True
+        x.requires_grad=True
         self.y_enc = nn.Sigmoid()(self.lin_enc(x))
         self.reg_loss = self.jacobi_loss_calc()
         y_out = nn.Sigmoid()(self.lin_dec(self.y_enc))
@@ -95,7 +103,12 @@ class BasicCae(nn.Module):
 
 class CNNSparseAE(nn.Module):
     
-    def __init__(self):
+    def __init__(self, beta, rho):
+        super(CNNSparseAE, self).__init__()
+        
+        self.beta = beta
+        self.rho = rho
+
         # encoder part
         self.conv1 = nn.Conv2d(4, 64, (3, 3), stride=3)
         self.conv2 = nn.Conv2d(64, 128, (4, 4), stride=4)
@@ -114,16 +127,21 @@ class CNNSparseAE(nn.Module):
         x_ = F.relu(self.conv2(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
         self.u = F.softmax(self.fc_e(x_))
+
+        # calculate reg loss
+        self.reg_loss = self.calculate_reg_loss()
         
         # decoding
-        y_ = F.tanh(self.fc_d(self.u))
+        y_ = torch.tanh(self.fc_d(self.u))
+        y_ = y_.view(-1, 128, 7, 7)
         y_ = F.relu(self.deconv1(y_))
         return F.relu(self.deconv2(y_))
         
-    def calculate_reg_loss(self, beta, rho):
+    def calculate_reg_loss(self):
         rho_ = self.u.mean(0) # average activations for each node
-        kl_div = rho_ * torch.log(rho_/rho)
-        return beta * kl_div.sum()
+        rho = self.rho
+        kl_div = rho * torch.log(rho/rho_) + (1-rho) * torch.log((1-rho)/(1-rho_))
+        return self.beta * kl_div.sum()
     
     def calculate_feature(self, x):
         self(x) # we do not need the output just the feature at the middle

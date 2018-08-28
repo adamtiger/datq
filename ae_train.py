@@ -4,6 +4,9 @@ from skimage.color import rgb2grey
 from skimage.transform import resize
 from skimage.util import crop
 from autoencoder import TrainLoader, BasicCae, get_device, Train
+import csv
+import pandas as pd
+from matplotlib.pyplot import show
 
 
 def random_image(n, size=(210, 160, 3)):
@@ -45,14 +48,14 @@ def concatenate(images, dones, length=4):
     rows, cols = images[0].shape[0], images[0].shape[1]
     conc_images = []
     valid = True
-    cube = np.zeros((rows, cols, length))
+    cube = np.zeros((length, rows, cols)) # channel first format in pytorch
     for i, img in enumerate(images):
         if (i+1) % length == 0:
             if valid:
                 conc_images.append(cube)
-            cube = np.zeros((rows, cols, length))
+            cube = np.zeros((length, rows, cols))
             valid = True
-        cube[:, :, i % 4] = img
+        cube[i % 4, :, :] = img
         valid = valid and not dones[i]
     return conc_images
 
@@ -66,7 +69,6 @@ def generate_batch(batch_size, exploration_policy=None, environment='Breakout-v0
     batch_size - the number of images to generate during a run
     exploration_policy - the policy how to explore the environments
     '''
-
     # create the environment and reset
     env = gym.make(environment)
     state, _, done, _ = env.reset()
@@ -88,29 +90,65 @@ def generate_batch(batch_size, exploration_policy=None, environment='Breakout-v0
     return images, dones
 
 
-def train_bae(lr, iterations, epochs, outer_batch, inner_batch, gpu_id=-1):
-
-    # function for following up the algorithm performance
-    history = {'iteration':[], 'loss':[], 'ci':0}
-    def followup_performance(epoch, i, loss_item, x_size):
-        itr = history['ci']
-        if itr % 1 == 0:
-            history['loss'].append(loss_item)
-            history['iteration'].append(itr)
-        history['ci'] += 1
-
+def train_ae(ae_model, lr, iterations, epochs, outer_batch, inner_batch, flat=False, gpu_id=-1, callback=None):
+    '''
+    The training function for AutoEncoders. This is a general function.
+    callback - function for handling the administrative data
+    '''
     device = get_device(cpu_anyway=(gpu_id==-1), gpu_id=gpu_id)
     
-    for _ in range(iterations):
+    for i in range(iterations):
         # create a batch for the outer loop
         images, dones = random_image(outer_batch) # generate_batch(outer_batch, environment='Breakout-v0')
         images = preprocess_batch(images)
         images = concatenate(images, dones)
-        images = flatten(images)
+        if flat:
+            images = flatten(images)
         trainloader = TrainLoader(images, inner_batch).get_trainloader()
         
-        bae = BasicCae(feature_size=200)
-        trainer = Train(bae, device, epochs, lr)
-        trainer.fit(trainloader, callback=followup_performance)
+        trainer = Train(ae_model, device, epochs, lr)
+        trainer.fit(trainloader, callback=callback)
+        trainer.save("weights/model_weights" + str(i) + ".pytorch")
     
-    return bae, history
+    return ae_model
+
+
+file_name = "logs.csv"
+history = {'iteration':[], 'loss_reg':[], 'loss_rec':[]}
+itr = 0
+epoch_old = -1
+def followup_performance(epoch, i, loss_rec_item, loss_reg_item, x_size):
+    global itr
+    global epoch_old
+
+    history['iteration'].append(itr)
+    history['loss_rec'].append(loss_rec_item)
+    history['loss_reg'].append(loss_reg_item)
+
+    if epoch != epoch_old:
+        c_write = open(file_name, 'at', buffering=1)
+        c_read = open(file_name, 'rt')
+
+        csv_reader = csv.reader(c_read)
+        csv_writer = csv.writer(c_write)
+        if len(list(csv_reader)) == 0:
+            # write the headers into the file
+            csv_writer.writerow(history.keys())
+        else:
+            for idx in range(len(history['iteration'])):
+                row = []
+                for k in history.keys():
+                    row.append(history[k][idx])
+                csv_writer.writerow(row)
+            for k in history.keys():
+                history[k].clear()
+
+    epoch_old = epoch
+    itr += 1
+
+def plot_learning_curve(file):
+
+    df = pd.read_csv(file)
+    df['loss'] = df['loss_reg'] + df['loss_rec']
+    df.plot(x='iteration', y='loss', kind='scatter')
+    show()
