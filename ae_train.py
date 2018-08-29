@@ -10,6 +10,9 @@ from matplotlib.pyplot import show
 
 
 def random_image(n, size=(210, 160, 3)):
+    '''
+    Only for test purposes.
+    '''
     images = []
     dones = []
     for _ in range(n):
@@ -90,7 +93,7 @@ def generate_batch(batch_size, exploration_policy=None, environment='Breakout-v0
     return images, dones
 
 
-def train_ae(ae_model, lr, iterations, epochs, outer_batch, inner_batch, flat=False, gpu_id=-1, callback=None):
+def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch, flat=False, gpu_id=-1, callback=None):
     '''
     The training function for AutoEncoders. This is a general function.
     callback - function for handling the administrative data
@@ -108,7 +111,7 @@ def train_ae(ae_model, lr, iterations, epochs, outer_batch, inner_batch, flat=Fa
         
         trainer = Train(ae_model, device, epochs, lr)
         trainer.fit(trainloader, callback=callback)
-        trainer.save("weights/model_weights" + str(i) + ".pytorch")
+        trainer.save(folder + "weights/model_weights" + str(i) + ".pt")
         print("Iteration: [%d]"%i)
     
     return ae_model
