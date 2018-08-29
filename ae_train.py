@@ -101,6 +101,8 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
     device = get_device(cpu_anyway=(gpu_id==-1), gpu_id=gpu_id)
     
     for i in range(iterations):
+        print("Iteration (starting): [%d]"%i)
+
         # create a batch for the outer loop
         images, dones = generate_batch(outer_batch, environment='Breakout-v0') # random_image(outer_batch)
         images = preprocess_batch(images)
@@ -111,8 +113,8 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
         
         trainer = Train(ae_model, device, epochs, lr)
         trainer.fit(trainloader, callback=callback)
-        trainer.save(folder + "/model_weights" + str(i) + ".pt")
-        print("Iteration: [%d]"%i)
+        if (i+1) % 10 == 0:
+            trainer.save(folder + "/model_weights" + str(i) + ".pt")
     
     return ae_model
 
@@ -164,21 +166,23 @@ def plot_learning_curve(file):
 
 import torch
 def plot_input_output(ae_model):
+    
+
     imgs, dones = generate_batch(4)
     imgs = preprocess_batch(imgs)
     imgs = concatenate(imgs, dones)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 84, 84)
 
-    device = torch.device('cuda:0')
-    img = img.to(device)
+    device = torch.device('cpu')
+    img = img
 
     y = ae_model(img)
     
     plt.figure(8)
-    plt.imshow(img.cpu().detach().numpy()[0, 0]*255)
+    plt.imshow(img.detach().numpy()[0, 0]*255)
     plt.show()
     
     plt.figure(9)
-    plt.imshow(y.cpu().detach().numpy()[0, 0]*255)
+    plt.imshow(y.detach().numpy()[0, 0]*255)
     plt.show()
 

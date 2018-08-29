@@ -28,10 +28,10 @@ def create_folders(base_folder):
 
 # managing the experiments
 lr = 2e-5
-iterations = 5
-epochs = 5
-outer_batch = 50
-inner_batch = 4
+iterations = 100
+epochs = 3
+outer_batch = 20000
+inner_batch = 128
 weight_folder, log_file = create_folders(generate_folder('ae'))
 ae_train.file_name = log_file
 
@@ -40,5 +40,5 @@ ae_model = CNNSparseAE(0.8, 0.05)
 
 _ = ae_train.train_ae(ae_model, weight_folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=0, callback=ae_train.followup_performance)
 
-#ae_train.plot_learning_curve(ae_train.file_name)
+#ae_train.plot_learning_curve('experiments/ae20180829124225/logs.csv')
 #ae_train.plot_input_output(ae_model)
