@@ -165,16 +165,13 @@ def plot_learning_curve(file):
     plt.show()
 
 import torch
-def plot_input_output(ae_model):
+def plot_input_output(ae_model, path):
     
-
+    ae_model.load_state_dict(torch.load(path))
     imgs, dones = generate_batch(4)
     imgs = preprocess_batch(imgs)
     imgs = concatenate(imgs, dones)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 84, 84)
-
-    device = torch.device('cpu')
-    img = img
 
     y = ae_model(img)
     
