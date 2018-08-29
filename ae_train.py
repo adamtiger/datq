@@ -30,7 +30,7 @@ def preprocess(image, threshold):
     # grayscale
     temp_ = rgb2grey(image)
     # crop
-    temp_ = crop(temp_, ((20, 10), (0, 0))) # empirical investigation (crops the playing area)
+    temp_ = crop(temp_, ((93, 12), (8, 8))) # empirical investigation (crops the playing area)
     # rescale
     temp_ = resize(temp_, (84, 84))
     # binary
@@ -165,9 +165,10 @@ def plot_learning_curve(file):
     plt.show()
 
 import torch
-def plot_input_output(ae_model, path):
+def plot_input_output(ae_model, path=None):
     
-    ae_model.load_state_dict(torch.load(path))
+    if path is not None:
+        ae_model.load_state_dict(torch.load(path))
     imgs, dones = generate_batch(4)
     imgs = preprocess_batch(imgs)
     imgs = concatenate(imgs, dones)
@@ -176,10 +177,10 @@ def plot_input_output(ae_model, path):
     y = ae_model(img)
     
     plt.figure(8)
-    plt.imshow(img.detach().numpy()[0, 0]*255)
+    plt.imshow(img.detach().numpy()[0, 2]*255)
     plt.show()
     
     plt.figure(9)
-    plt.imshow(y.detach().numpy()[0, 0]*255)
+    plt.imshow(y.detach().numpy()[0, 2]*255)
     plt.show()
 
