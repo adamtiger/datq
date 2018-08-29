@@ -6,7 +6,7 @@ from skimage.util import crop
 from autoencoder import TrainLoader, BasicCae, get_device, Train
 import csv
 import pandas as pd
-from matplotlib.pyplot import show
+from matplotlib import pyplot as plt
 
 
 def random_image(n, size=(210, 160, 3)):
@@ -34,11 +34,11 @@ def preprocess(image, threshold):
     # rescale
     temp_ = resize(temp_, (84, 84))
     # binary
-    temp_ = (temp_ > threshold).astype(np.float32)
+    temp_ = abs((temp_ > threshold).astype(np.float32)-1e-6)
     return temp_
 
 
-def preprocess_batch(images, threshold=20):
+def preprocess_batch(images, threshold=0):
     return list(map(lambda img: preprocess(img, threshold), images))
 
 
@@ -111,7 +111,7 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
         
         trainer = Train(ae_model, device, epochs, lr)
         trainer.fit(trainloader, callback=callback)
-        trainer.save(folder + "weights/model_weights" + str(i) + ".pt")
+        trainer.save(folder + "/model_weights" + str(i) + ".pt")
         print("Iteration: [%d]"%i)
     
     return ae_model
@@ -120,16 +120,14 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
 file_name = "logs.csv"
 history = {'iteration':[], 'loss_reg':[], 'loss_rec':[]}
 itr = 0
-epoch_old = -1
 def followup_performance(epoch, i, loss_rec_item, loss_reg_item, x_size):
     global itr
-    global epoch_old
 
     history['iteration'].append(itr)
     history['loss_rec'].append(loss_rec_item)
     history['loss_reg'].append(loss_reg_item)
 
-    if epoch != epoch_old:
+    if i == 0:
         c_write = open(file_name, 'at', buffering=1)
         c_read = open(file_name, 'rt')
 
@@ -146,8 +144,10 @@ def followup_performance(epoch, i, loss_rec_item, loss_reg_item, x_size):
                 csv_writer.writerow(row)
             for k in history.keys():
                 history[k].clear()
+        
+        c_write.close()
+        c_read.close()
 
-    epoch_old = epoch
     itr += 1
 
 def plot_learning_curve(file):
@@ -156,6 +156,29 @@ def plot_learning_curve(file):
     file - the csv file containing (iteration, loss_rec, loss_reg)
     '''
     df = pd.read_csv(file)
-    df['loss'] = df['loss_reg'] + df['loss_rec']
-    df.plot(x='iteration', y='loss', kind='scatter')
-    show()
+    x = df['iteration'].values
+    y_rec = df['loss_rec']
+    y_reg = df['loss_reg']
+    plt.plot(x, y_rec, 'yo', x, y_reg, 'ro')
+    plt.show()
+
+import torch
+def plot_input_output(ae_model):
+    imgs, dones = generate_batch(4)
+    imgs = preprocess_batch(imgs)
+    imgs = concatenate(imgs, dones)
+    img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 84, 84)
+
+    device = torch.device('cuda:0')
+    img = img.to(device)
+
+    y = ae_model(img)
+    
+    plt.figure(8)
+    plt.imshow(img.cpu().detach().numpy()[0, 0]*255)
+    plt.show()
+    
+    plt.figure(9)
+    plt.imshow(y.cpu().detach().numpy()[0, 0]*255)
+    plt.show()
+

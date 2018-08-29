@@ -49,19 +49,19 @@ class Train:
         for epoch in range(self.epochs):
             for i, data in enumerate(X, 0):
                 x = data[0]
-                x = x.to(self.device) # input is the same as the output (autoencoder)
-                y_real = x
-                y_model = self.model(x)
+                y_real = torch.max(torch.min(x, torch.tensor(1.0)), torch.tensor(0.0))
+                y_real = y_real.to(self.device) # input is the same as the output (autoencoder)
+                y_model = self.model(y_real)
 
-                loss_reconst = self.criterion(y_model, y_real)
+                loss_rec = self.criterion(y_model, y_real)
                 loss_reg = self.model.reg_loss
-                loss = loss_reconst + loss_reg
+                loss =  loss_reg + loss_rec
                 loss.backward()
                 self.optimizer.step()
 
                 # administration for showing loss and so on
                 if callback is not None:
-                    callback(epoch, i, loss_reconst.item(), loss_reg.item(), x.size(0))
+                    callback(epoch, i, loss_rec.item(), loss_reg.item(), x.size(0))
             print("Epoch (done): [%d]\r"%epoch, end='')
         print("\n")
     
@@ -139,22 +139,22 @@ class CNNSparseAE(nn.Module):
         x_ = F.relu(self.conv1(x))
         x_ = F.relu(self.conv2(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
-        self.u = F.softmax(self.fc_e(x_))
+        self.u = torch.sigmoid(self.fc_e(x_))
 
         # calculate reg loss
         self.reg_loss = self.calculate_reg_loss()
         
         # decoding
-        y_ = torch.tanh(self.fc_d(self.u))
+        y_ = F.relu(self.fc_d(self.u))
         y_ = y_.view(-1, 128, 7, 7)
         y_ = F.relu(self.deconv1(y_))
-        return F.relu(self.deconv2(y_))
+        return torch.sigmoid(self.deconv2(y_))
         
     def calculate_reg_loss(self):
         rho_ = self.u.mean(0) # average activations for each node
         rho = self.rho
         kl_div = rho * torch.log(rho/rho_) + (1-rho) * torch.log((1-rho)/(1-rho_)) # KL divergence for avg. activation
-        return self.beta * kl_div.sum()
+        return self.beta * kl_div.sum()/rho_.size(0)
     
     def calculate_feature(self, x):
         self(x) # we do not need the output just the feature at the middle

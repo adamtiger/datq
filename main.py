@@ -3,29 +3,42 @@ from autoencoder import CNNSparseAE
 import os
 import datetime
 
-def generate_folder_name(experiment_type):
+def generate_folder(experiment_type):
     if experiment_type in ['ae', 'c', 'q']:
         dt = str(datetime.datetime.now())
         dt = dt.split('.')[0]
         dt = dt.replace('-', '')
         dt = dt.replace(':', '')
         dt = dt.replace(' ', '')
-        return experiment_type + dt
+        dt = experiment_type + dt
+        return dt
     else:
         return None
 
+def create_folders(base_folder):
+    base_folder = os.path.join('experiments', base_folder)
+    os.mkdir(base_folder)
+
+    weight_folder = os.path.join(base_folder, 'weights')
+    os.mkdir(weight_folder)
+
+    log_file = os.path.join(base_folder, 'logs.csv')
+    return weight_folder, log_file
+
+
 # managing the experiments
-lr = 1e-3
-iterations = 50
-epochs = 2
-outer_batch = 20
+lr = 2e-5
+iterations = 5
+epochs = 5
+outer_batch = 50
 inner_batch = 4
-folder = os.path.join('experiments', generate_folder_name('ae'))
-ae_train.file_name = os.path.join(folder, 'logs.csv')
+weight_folder, log_file = create_folders(generate_folder('ae'))
+ae_train.file_name = log_file
 
 
-ae_model = CNNSparseAE(0.001, 0.05)
+ae_model = CNNSparseAE(0.8, 0.05)
 
-_ = ae_train.train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=0, callback=ae_train.followup_performance)
+_ = ae_train.train_ae(ae_model, weight_folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=0, callback=ae_train.followup_performance)
 
-ae_train.plot_learning_curve(ae_train.file_name)
+#ae_train.plot_learning_curve(ae_train.file_name)
+#ae_train.plot_input_output(ae_model)
