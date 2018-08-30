@@ -152,7 +152,7 @@ class CNNSparseAE(nn.Module):
         self.reg_loss = self.u.mean(0).sum() * 0.0 # self.calculate_reg_loss()
         
         # decoding
-        y_ = y_.view(-1, 16, 8, 5)
+        y_ = self.u.view(-1, 16, 8, 5)
         y_ = F.relu(self.deconv1(y_))
         y_ = F.relu(self.deconv2(y_))
         y_ = F.relu(self.deconv3(y_))
