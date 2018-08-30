@@ -32,7 +32,7 @@ def preprocess(image, threshold):
     # crop
     temp_ = crop(temp_, ((93, 12), (8, 8))) # empirical investigation (crops the playing area)
     # rescale
-    temp_ = resize(temp_, (84, 84))
+    temp_ = resize(temp_, (108, 84))
     # binary
     temp_ = abs((temp_ > threshold).astype(np.float32)-1e-6)
     return temp_
@@ -172,7 +172,7 @@ def plot_input_output(ae_model, path=None):
     imgs, dones = generate_batch(4)
     imgs = preprocess_batch(imgs)
     imgs = concatenate(imgs, dones)
-    img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 84, 84)
+    img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)
     

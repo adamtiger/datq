@@ -123,13 +123,18 @@ class CNNSparseAE(nn.Module):
         self.rho = rho   # the expected average activation in the encoder layer
 
         # encoder part
-        self.conv1 = nn.Conv2d(4, 64, (3, 3), stride=3)
-        self.conv2 = nn.Conv2d(64, 128, (4, 4), stride=4)
-        self.fc_e = nn.Linear(6272, 500, bias=True)
+        self.conv1 = nn.Conv2d(4, 32, (8, 8), stride=4)
+        self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
+        self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
+        self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
+        #self.fc_e = nn.Linear(6272, 500, bias=True)
 
-        self.fc_d = nn.Linear(500, 6272, bias=True)
-        self.deconv1 = nn.ConvTranspose2d(128, 64, (4, 4), stride=4)
-        self.deconv2 = nn.ConvTranspose2d(64, 4, (3, 3), stride=3)
+        #self.fc_d = nn.Linear(500, 6272, bias=True)
+        self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
+        self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
+        self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
+        self.deconv4 = nn.ConvTranspose2d(64, 32, (8, 8), stride=3)
+        self.deconv5 = nn.ConvTranspose2d(32, 4, (1, 1), stride=1)
 
         self.u = 0.0
         self.reg_loss = 0.0
@@ -138,17 +143,21 @@ class CNNSparseAE(nn.Module):
         # encoding
         x_ = F.relu(self.conv1(x))
         x_ = F.relu(self.conv2(x_))
+        x_ = F.relu(self.conv3(x_))
+        x_ = F.relu(self.conv4(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
-        self.u = F.relu(self.fc_e(x_))
+        self.u = F.relu()
 
         # calculate reg loss
-        self.reg_loss = self.u.mean(0) * 0.0 # self.calculate_reg_loss()
+        self.reg_loss = self.u.mean(0).sum() * 0.0 # self.calculate_reg_loss()
         
         # decoding
-        y_ = F.relu(self.fc_d(self.u))
-        y_ = y_.view(-1, 128, 7, 7)
+        y_ = y_.view(-1, 16, 8, 5)
         y_ = F.relu(self.deconv1(y_))
-        return torch.sigmoid(self.deconv2(y_))
+        y_ = F.relu(self.deconv2(y_))
+        y_ = F.relu(self.deconv3(y_))
+        y_ = F.relu(self.deconv4(y_))
+        return torch.sigmoid(self.deconv5(y_))
         
     def calculate_reg_loss(self):
         rho_ = self.u.mean(0) # average activations for each node
