@@ -133,7 +133,7 @@ class CNNSparseAE(nn.Module):
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
-        self.deconv4 = nn.ConvTranspose2d(64, 32, (8, 8), stride=3)
+        self.deconv4 = nn.ConvTranspose2d(64, 32, (8, 8), stride=4)
         self.deconv5 = nn.ConvTranspose2d(32, 4, (1, 1), stride=1)
 
         self.u = 0.0
