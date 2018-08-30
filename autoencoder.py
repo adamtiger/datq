@@ -146,7 +146,7 @@ class CNNSparseAE(nn.Module):
         x_ = F.relu(self.conv3(x_))
         x_ = F.relu(self.conv4(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
-        self.u = F.relu()
+        self.u = x_
 
         # calculate reg loss
         self.reg_loss = self.u.mean(0).sum() * 0.0 # self.calculate_reg_loss()
