@@ -142,7 +142,7 @@ class CNNSparseAE(nn.Module):
         self.u = F.relu(self.fc_e(x_))
 
         # calculate reg loss
-        self.reg_loss = torch.tensor(0.0) # self.calculate_reg_loss()
+        self.reg_loss = self.u.mean(0) * 0.0 # self.calculate_reg_loss()
         
         # decoding
         y_ = F.relu(self.fc_d(self.u))
