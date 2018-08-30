@@ -110,7 +110,7 @@ class BasicCae(nn.Module):
 
 class CNNSparseAE(nn.Module):
     '''
-    This encode is based on a CNN and a KL divergence 
+    This encoder is based on a CNN and a KL divergence 
     which ensures sparse encoding.
     In case of a new Sparse encoder, just change this one
     and use a clear commit or tag in git.
@@ -125,9 +125,9 @@ class CNNSparseAE(nn.Module):
         # encoder part
         self.conv1 = nn.Conv2d(4, 64, (3, 3), stride=3)
         self.conv2 = nn.Conv2d(64, 128, (4, 4), stride=4)
-        self.fc_e = nn.Linear(6272, 2500, bias=True)
+        self.fc_e = nn.Linear(6272, 500, bias=True)
 
-        self.fc_d = nn.Linear(2500, 6272, bias=True)
+        self.fc_d = nn.Linear(500, 6272, bias=True)
         self.deconv1 = nn.ConvTranspose2d(128, 64, (4, 4), stride=4)
         self.deconv2 = nn.ConvTranspose2d(64, 4, (3, 3), stride=3)
 
@@ -139,10 +139,10 @@ class CNNSparseAE(nn.Module):
         x_ = F.relu(self.conv1(x))
         x_ = F.relu(self.conv2(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
-        self.u = torch.sigmoid(self.fc_e(x_))
+        self.u = F.relu(self.fc_e(x_))
 
         # calculate reg loss
-        self.reg_loss = self.calculate_reg_loss()
+        self.reg_loss = torch.tensor(0.0) # self.calculate_reg_loss()
         
         # decoding
         y_ = F.relu(self.fc_d(self.u))
