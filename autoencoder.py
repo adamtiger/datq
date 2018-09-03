@@ -52,7 +52,8 @@ class Train:
                 y_real = torch.max(torch.min(x, torch.tensor(1.0)), torch.tensor(0.0))
                 y_real = y_real.to(self.device) # input is the same as the output (autoencoder)
                 y_model = self.model(y_real)
-
+                
+                self.optimizer.zero_grad()
                 loss_rec = self.criterion(y_model, y_real)
                 loss_reg = self.model.reg_loss
                 loss =  loss_reg + loss_rec
@@ -127,9 +128,9 @@ class CNNSparseAE(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
         self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
         self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
-        #self.fc_e = nn.Linear(6272, 500, bias=True)
+        self.fc_e = nn.Linear(640, 50, bias=True)
 
-        #self.fc_d = nn.Linear(500, 6272, bias=True)
+        self.fc_d = nn.Linear(50, 640, bias=True)
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
@@ -146,18 +147,21 @@ class CNNSparseAE(nn.Module):
         x_ = F.relu(self.conv3(x_))
         x_ = F.relu(self.conv4(x_))
         x_ = x_.view(x_.size(0), -1) # flatten the 3D tensor to 1D in batch mode
+        x_ = F.relu(self.fc_e(x_))
         self.u = x_
 
         # calculate reg loss
         self.reg_loss = self.u.mean(0).sum() * 0.0 # self.calculate_reg_loss()
         
         # decoding
-        y_ = self.u.view(-1, 16, 8, 5)
+        y_ = F.relu(self.fc_d(self.u))
+        y_ = y_.view(-1, 16, 8, 5)
         y_ = F.relu(self.deconv1(y_))
         y_ = F.relu(self.deconv2(y_))
         y_ = F.relu(self.deconv3(y_))
         y_ = F.relu(self.deconv4(y_))
-        return torch.sigmoid(self.deconv5(y_))
+        y_ = self.deconv5(y_)
+        return torch.sigmoid(y_)
         
     def calculate_reg_loss(self):
         rho_ = self.u.mean(0) # average activations for each node
