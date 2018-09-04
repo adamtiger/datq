@@ -39,7 +39,7 @@ class Train:
         self.model.to(device)
         self.device = device
         self.epochs = epochs
-        self.criterion = nn.BCELoss()
+        self.criterion = ImportanceWeightedBCELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
     
     def fit(self, X, callback=None):
@@ -128,9 +128,9 @@ class CNNSparseAE(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
         self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
         self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
-        self.fc_e = nn.Linear(640, 50, bias=True)
+        self.fc_e = nn.Linear(640, 100, bias=True)
 
-        self.fc_d = nn.Linear(50, 640, bias=True)
+        self.fc_d = nn.Linear(100, 640, bias=True)
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
@@ -173,5 +173,17 @@ class CNNSparseAE(nn.Module):
         self(x) # we do not need the output just the feature at the middle
         return self.u
 
-class EdgedetectorAE:
-    pass
+
+class ImportanceWeightedBCELoss(nn.Module):
+
+    def __init__(self):
+        super(ImportanceWeightedBCELoss, self).__init__()
+        self.loss = 0.0
+
+    def forward(self, original, reconstructed):
+        batch_size = original.size(0)
+        I = (original - torch.mean(original))
+        BCE = original * torch.log(reconstructed) + (1-original) * torch.log(1-reconstructed)
+        self.loss = torch.sum(I * BCE) / batch_size
+        return self.loss
+
