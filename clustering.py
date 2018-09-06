@@ -19,3 +19,6 @@ class ClusteringKMeans:
     def predict(self, x):
         return self.kmeans.predict(x)
 
+    def fit(self, X):
+        self.kmeans.fit(X)
+

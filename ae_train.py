@@ -1,96 +1,26 @@
 import gym
+import csv
+import torch
 import numpy as np
+import pandas as pd
 from skimage.color import rgb2grey
 from skimage.transform import resize
 from skimage.util import crop
 from autoencoder import TrainLoader, BasicCae, get_device, Train
-import csv
-import pandas as pd
+from environment import Environment as E
 from matplotlib import pyplot as plt
 
 
-def random_image(n, size=(210, 160, 3)):
-    '''
-    Only for test purposes.
-    '''
-    images = []
-    dones = []
-    for _ in range(n):
-        img = np.random.randint(0, 256, size)
-        images.append(img)
-        dones.append(False)
-    return images, dones
-
-
-def preprocess(image, threshold):
-    '''
-    Preprocesses an image from Atari.
-    Grayscale, crop, resize, (normalize)
-    '''
-    # grayscale
-    temp_ = rgb2grey(image)
-    # crop
-    temp_ = crop(temp_, ((20, 12), (0, 0))) # empirical investigation (crops the playing area)
-    # rescale
-    temp_ = resize(temp_, (108, 84))
-    # binary
-    temp_ = abs((temp_ > threshold).astype(np.float32)-1e-10)
-    return temp_
-
-
-def preprocess_batch(images, threshold=0):
-    return list(map(lambda img: preprocess(img, threshold), images))
-
-
-def concatenate(images, dones, length=4):
-    '''
-    Concatenates length number of consequtive images.
-    images - a list of numpy images
-    dones - if an episode ends then the next image does not correspond to the current cube
-    '''
-    rows, cols = images[0].shape[0], images[0].shape[1]
-    conc_images = []
-    valid = True
-    cube = np.zeros((length, rows, cols)) # channel first format in pytorch
-    for i, img in enumerate(images):
-        if (i+1) % length == 0:
-            if valid:
-                conc_images.append(cube)
-            cube = np.zeros((length, rows, cols))
-            valid = True
-        cube[i % length, :, :] = img
-        valid = valid and not dones[i]
-    return conc_images
-
-
-def flatten(images):
-    return list(map(np.ndarray.flatten, images))
-
-
-def generate_batch(batch_size, exploration_policy=None, environment='Breakout-v0'):
+def generate_batch(batch_size, environment='Breakout-v0'):
     '''
     batch_size - the number of images to generate during a run
-    exploration_policy - the policy how to explore the environments
+    environment - name of the OpenAI like environment
     '''
     # create the environment and reset
     env = gym.make(environment)
-    state = env.reset()
-    
-    # use random exploration if nothing is provided
-    if exploration_policy is None:
-        exploration_policy = (lambda x: np.random.randint(0, env.action_space.n))
 
     # generate images
-    images = []
-    dones = []
-    for _ in range(batch_size):
-        state, _, done, _ = env.step(exploration_policy(state))
-        images.append(state)
-        dones.append(done)
-        if done:
-            state = env.reset()
-    
-    return images, dones
+    return E.generate_random_trajectory(batch_size, env)
 
 
 def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch, flat=False, gpu_id=-1, callback=None):
@@ -105,10 +35,10 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
 
         # create a batch for the outer loop
         images, dones = generate_batch(outer_batch, environment='Breakout-v0') # random_image(outer_batch)
-        images = preprocess_batch(images)
-        images = concatenate(images, dones)
+        images = E.preprocess_batch(images)
+        images = E.concatenate(images, dones)
         if flat:
-            images = flatten(images)
+            images = E.flatten(images)
         trainloader = TrainLoader(images, inner_batch).get_trainloader()
         
         trainer = Train(ae_model, device, epochs, lr)
@@ -164,14 +94,13 @@ def plot_learning_curve(file):
     plt.plot(x, y_rec, 'yo', x, y_reg, 'ro')
     plt.show()
 
-import torch
 def plot_input_output(ae_model, path=None):
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
     imgs, dones = generate_batch(4)
-    imgs = preprocess_batch(imgs)
-    imgs = concatenate(imgs, dones)
+    imgs = E.preprocess_batch(imgs)
+    imgs = E.concatenate(imgs, dones)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)
