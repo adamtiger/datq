@@ -36,7 +36,7 @@ def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch,
         # create a batch for the outer loop
         images, dones = generate_batch(outer_batch, environment='Breakout-v0') # random_image(outer_batch)
         images = E.preprocess_batch(images)
-        images = E.concatenate(images, dones)
+        images, _ = E.concatenate(images, dones)
         if flat:
             images = E.flatten(images)
         trainloader = TrainLoader(images, inner_batch).get_trainloader()

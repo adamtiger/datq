@@ -37,6 +37,6 @@ ae_train.file_name = log_file
 
 
 ae_model = CNNSparseAE(0.2, 0.05)
-#_ = ae_train.train_ae(ae_model, weight_folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=1, callback=ae_train.followup_performance)
-ae_train.plot_learning_curve("experiments/ae20180905181729/logs.csv")
-ae_train.plot_input_output(ae_model, path="experiments/ae20180905181729/weights/model_weights79.pt")
+_ = ae_train.train_ae(ae_model, weight_folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=1, callback=ae_train.followup_performance)
+#ae_train.plot_learning_curve("experiments/ae20180905181729/logs.csv")
+#ae_train.plot_input_output(ae_model, path="experiments/ae20180905181729/weights/model_weights79.pt")

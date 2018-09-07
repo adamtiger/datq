@@ -41,7 +41,7 @@ class Environment:
         episode_end = []
         for idx in range(len(images)-length):
             image_batch = np.array(images[idx:(idx+length)])
-            done_batch = np.array(dones[idx:(idx+length-1)]).sum() == 0
+            done_batch = (np.array(dones[idx:(idx+length-1)], dtype=np.int32).sum() == 0)
             if done_batch:
                 concatenated.append(image_batch)
                 episode_end.append(dones[idx+length-1])
@@ -75,10 +75,10 @@ class Environment:
         dones = []
         for _ in range(step_number):
             state, _, done, _ = env.step(np.random.randint(0, n))
-        images.append(state)
-        dones.append(done)
-        if done:
-            state = env.reset()
+            images.append(state)
+            dones.append(done)
+            if done:
+                env.reset()
     
         return images, dones
 
