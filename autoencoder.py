@@ -182,7 +182,7 @@ class ImportanceWeightedBCELoss(nn.Module):
 
     def forward(self, original, reconstructed):
         batch_size = original.size(0)
-        I = (original - torch.mean(original))
+        I = (original - torch.mean(original, 0))
         BCE = original * torch.log(reconstructed + 1e-10) + (1-original) * torch.log(1-reconstructed + 1e-10)
         self.loss = -torch.sum(I * BCE) / batch_size
         return self.loss
