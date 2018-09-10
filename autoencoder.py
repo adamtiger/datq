@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import grad 
 import torch.utils.data as DT
+from losses import ImportanceWeightedBCELoss
 
 
 def get_device(cpu_anyway=False, gpu_id=0):
@@ -172,17 +173,3 @@ class CNNSparseAE(nn.Module):
     def calculate_feature(self, x):
         self(x) # we do not need the output just the feature at the middle
         return self.u
-
-
-class ImportanceWeightedBCELoss(nn.Module):
-
-    def __init__(self):
-        super(ImportanceWeightedBCELoss, self).__init__()
-        self.loss = 0.0
-
-    def forward(self, reconstructed, original):
-        batch_size = original.size(0)
-        I = torch.abs(original - torch.mean(original, 0))
-        BCE = original * torch.log(reconstructed + 1e-10) + (1-original) * torch.log(1-reconstructed + 1e-10)
-        self.loss = -torch.sum(I * BCE) / batch_size
-        return self.loss
