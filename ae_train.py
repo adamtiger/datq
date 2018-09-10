@@ -98,9 +98,9 @@ def plot_input_output(ae_model, path=None):
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
-    imgs, dones = generate_batch(4)
+    imgs, dones = generate_batch(20)
     imgs = E.preprocess_batch(imgs)
-    imgs = E.concatenate(imgs, dones)
+    imgs, _ = E.concatenate(imgs, dones)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)
