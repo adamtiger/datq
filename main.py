@@ -1,7 +1,12 @@
+import argparse
 import ae_train
 from autoencoder import CNNSparseAE
 import os
 import datetime
+
+parser = argparse.ArgumentParser(description="Manage training phase.")
+parser.add_argument("--mode", type=int, default=0, metavar='N', help="1: ae, 2: c, 3: q")
+args = parser.parse_args()
 
 def generate_folder(experiment_type):
     if experiment_type in ['ae', 'c', 'q']:
@@ -26,17 +31,39 @@ def create_folders(base_folder):
     return weight_folder, log_file
 
 
-# managing the experiments
-lr = 1e-3
-iterations = 120
-epochs = 5
-outer_batch = 20000
-inner_batch = 128
-weight_folder, log_file = create_folders(generate_folder('ae'))
-ae_train.file_name = log_file
+# ---------------------------------
+# Autoencoder training
+if args.mode == 1:
+
+    # training parameters
+    params = {}
+    params['gpu_id'] = 0
+    params['lr'] = 1e-3
+    params['iterations'] = 120
+    params['epochs'] = 5
+    params['outer_batch'] = 20000
+    params['inner_batch'] = 128
+    weight_folder, log_file = create_folders(generate_folder('ae'))
+    params['folder'] = weight_folder
+    ae_train.file_name = log_file
+
+    ae_model = CNNSparseAE(0.2, 0.05)
+    _ = ae_train.train_ae(ae_model, params, callback=ae_train.followup_performance)
+    ae_train.plot_learning_curve(log_file)
+    ae_train.plot_input_output(
+        ae_model, 
+        path=os.path.join(weight_folder, ae_train._CONST_model_weights + str(params['iteration'] - 1) + '.pt')
+    )
+
+# ---------------------------------
+# Clustering
+elif args.mode == 2:
+    pass
+
+# ---------------------------------
+# Q-learning
+elif args.mode == 3:
+    pass
 
 
-ae_model = CNNSparseAE(0.2, 0.05)
-_ = ae_train.train_ae(ae_model, weight_folder, lr, iterations, epochs, outer_batch, inner_batch, gpu_id=0, callback=ae_train.followup_performance)
-#ae_train.plot_learning_curve("experiments/ae20180907205241/logs.csv")
-#ae_train.plot_input_output(ae_model, path="experiments/ae20180907205241/weights/model_weights119.pt")
+print('Finished!')

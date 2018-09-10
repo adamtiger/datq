@@ -7,23 +7,17 @@ from environment import Environment as E
 
 class Q:
 
-    def __init__(self, clustering, epsilon, gamma, max_iter, env_name, record_video, folder):
+    def __init__(self, clustering, env_name, record_video, folder):
         '''
         This class trains a Q-table. The input state is derived from the clustered
         encoded state.
 
         clustering - a function to determine which cluster the next processed input corresponds to
-        epsilon - the exploration ratio
-        gamma - discounting factor
-        max_iter - the number of iteration in Q-learning
         env_name - name of the Atari environment
         record_video - record a video about the agent during evaluation
         folder - 
         '''
         self.clustering = clustering
-        self.epsilon = epsilon
-        self.gamma = gamma
-        self.max_iter = max_iter
         self.env_name = env_name
         self.record_video = record_video
         self.folder = folder
@@ -62,6 +56,12 @@ class Q:
 
     def __q_table_argmax(self, state):
         return self.q_table[state].argmax()
+    
+    def __q_table_save(self, file_name):
+        np.save(file_name, self.q_table, allow_pickle=False)
+
+    def __q_table_load(self, file_name):
+        self.q_table = np.load(file_name, allow_pickle=False)
 
     # ---------------------------------
     # Target and behaviour policy
@@ -69,41 +69,53 @@ class Q:
     def __policy(self, state):
         return self.__q_table_argmax(state)
 
-    def __epsilon_greedy(self, state):
+    def __epsilon_greedy(self, state, epsilon):
         # creating the list of actions to choose from
         n = self.env.action_space.n
         actions = [a for a in range(n)]
         # the probabilities associated with each entry in actions
-        p = np.ones(n) * self.epsilon/(n-1)
-        p[self.__policy(state)] = 1 - self.epsilon
+        p = np.ones(n) * epsilon/(n-1)
+        p[self.__policy(state)] = 1 - epsilon
         return np.random.choice(actions, p=p)
     
     # ---------------------------------
     # Train and evaluate
     
-    def train(self):
+    def train(self, params, callback=None):
         self.__env_init()
         self.__q_table_init()
         ev = E(self.env)
+        epsilon = params['epsilon_0']
+        gamma = params['gamma']
         alpha = 1.0
         prev_state = ev.observation
 
+        print("Start training.")
+
         def policy(state):
             x = self.clustering(state)
-            return self.__epsilon_greedy(x)
+            return self.__epsilon_greedy(x, epsilon)
 
-        for cntr in range(self.max_iter):
+        for cntr in range(params['max_iter']):
 
             # take a step in the environment
             state, action, reward, done = ev.environment_step(policy)
 
             # update the q function
-            value = (1-alpha) * self.__q_table_get(prev_state, action) + alpha * (reward + (1-done) * self.gamma * self.__q_table_max(state))
+            value = (1-alpha) * self.__q_table_get(prev_state, action) + alpha * (reward + (1-done) * gamma * self.__q_table_max(state))
             self.__q_table_set(prev_state, action, value)
 
             # update the alpha and epsilon
             alpha = 1.0/cntr
-            self.epsilon = max(0.05, self.epsilon - 0.05)
+            epsilon = max(params['epsilon_min'], epsilon - params['epsilon_delta'])
+
+            if cntr % params['eval_freq'] == 0:
+                print("Evaluation: %d%%"%int(cntr * 100 / params['max_iter']))
+                return_per_episode = self.evaluate()
+                self.__q_table_save(os.path.join(self.folder, 'q_table' + str(cntr)))
+                if callback is not None:
+                    callback(return_per_episode)
+
 
     def evaluate(self):
         
@@ -116,7 +128,6 @@ class Q:
         return_per_episode = []
         utility = 0.0
         for _ in range(20):
-
             # take a step in the environment
             _, _, reward, done = env.environment_step(policy)
             utility += reward

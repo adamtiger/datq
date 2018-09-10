@@ -1,3 +1,4 @@
+import os
 import gym
 import csv
 import torch
@@ -10,6 +11,11 @@ from autoencoder import TrainLoader, BasicCae, get_device, Train
 from environment import Environment as E
 from matplotlib import pyplot as plt
 
+# Fixed names for files.
+_CONST_model_weights = "model_weights"
+_CONST_learning_curve = "lrn.png"
+_CONST_input = "input.png"
+_CONST_output = "output.png"
 
 def generate_batch(batch_size, environment='Breakout-v0'):
     '''
@@ -23,28 +29,28 @@ def generate_batch(batch_size, environment='Breakout-v0'):
     return E.generate_random_trajectory(batch_size, env)
 
 
-def train_ae(ae_model, folder, lr, iterations, epochs, outer_batch, inner_batch, flat=False, gpu_id=-1, callback=None):
+def train_ae(ae_model, params, callback=None):
     '''
     The training function for AutoEncoders. This is a general function.
     callback - function for handling the administrative data
     '''
-    device = get_device(cpu_anyway=(gpu_id==-1), gpu_id=gpu_id)
+    device = get_device(cpu_anyway=(params['gpu_id']==-1), gpu_id=params['gpu_id'])
     
-    for i in range(iterations):
+    for i in range(params['iterations']):
         print("Iteration (starting): [%d]"%i)
 
         # create a batch for the outer loop
-        images, dones = generate_batch(outer_batch, environment='Breakout-v0') # random_image(outer_batch)
+        images, dones = generate_batch(params['outer_batch'], environment='Breakout-v0') # random_image(outer_batch)
         images = E.preprocess_batch(images)
         images, _ = E.concatenate(images, dones)
-        if flat:
+        if params['flat']:
             images = E.flatten(images)
-        trainloader = TrainLoader(images, inner_batch).get_trainloader()
+        trainloader = TrainLoader(images, params['inner_batch']).get_trainloader()
         
-        trainer = Train(ae_model, device, epochs, lr)
+        trainer = Train(ae_model, device, params['epochs'], params['lr'])
         trainer.fit(trainloader, callback=callback)
         if (i+1) % 10 == 0:
-            trainer.save(folder + "/model_weights" + str(i) + ".pt")
+            trainer.save(params['folder'] + _CONST_model_weights + str(i) + ".pt")
     
     return ae_model
 
@@ -82,7 +88,7 @@ def followup_performance(epoch, i, loss_rec_item, loss_reg_item, x_size):
 
     itr += 1
 
-def plot_learning_curve(file):
+def plot_learning_curve(file, verbose=False):
     '''
     Plots the total loss at each iteration.
     file - the csv file containing (iteration, loss_rec, loss_reg)
@@ -92,9 +98,20 @@ def plot_learning_curve(file):
     y_rec = df['loss_rec']
     y_reg = df['loss_reg']
     plt.plot(x, y_rec, 'yo', x, y_reg, 'ro')
-    plt.show()
+    file.replace(file.split(os.sep)[-1], _CONST_learning_curve)
+    plt.savefig(file)
+    if verbose:
+        plt.show()
 
-def plot_input_output(ae_model, path=None):
+def plot_input_output(ae_model, path=None, verbose=False):
+    
+    # parent folder of parent folder
+    def pp_folder(path, new_name):
+        items = path.split(os.sep)
+        old = os.path.join(items[-2], items[-1])
+        new = new_name
+        path.replace(old, new)
+        return path
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
@@ -107,9 +124,15 @@ def plot_input_output(ae_model, path=None):
     
     plt.figure(8)
     plt.imshow(img.detach().numpy()[0, 2]*255)
-    plt.show()
+    if path is not None:
+        plt.savefig(pp_folder(path, _CONST_input))
+    if verbose:
+        plt.show()
     
     plt.figure(9)
     plt.imshow(y.detach().numpy()[0, 2]*255)
-    plt.show()
+    if path is not None:
+        plt.savefig(pp_folder(path, _CONST_output))
+    if verbose:
+        plt.show()
 
