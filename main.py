@@ -1,7 +1,12 @@
 import argparse
 import ae_train
-from autoencoder import CNNSparseAE
+from autoencoder import CNNSparseAE, load_model
+import clustering as cl
+from sklearn.externals import joblib
+import numpy as np
+from q_learn import Q
 import os
+import csv
 import datetime
 
 parser = argparse.ArgumentParser(description="Manage training phase.")
@@ -38,8 +43,8 @@ if args.mode == 1:
     # training parameters
     params = {}
     params['gpu_id'] = 0
-    params['lr'] = 1e-3
-    params['iterations'] = 120
+    params['lr'] = 5e-4
+    params['iterations'] = 180
     params['epochs'] = 5
     params['outer_batch'] = 20000
     params['inner_batch'] = 128
@@ -58,12 +63,62 @@ if args.mode == 1:
 # ---------------------------------
 # Clustering
 elif args.mode == 2:
-    pass
+    path = "sg"
+    sample_size = 5000
+    num_clusters = 250
+    batch_size = 32
+    model_folder, log_file = create_folders(generate_folder('c'))
+    
+    # generate data from the environment
+    ae_model = load_model(CNNSparseAE(), path)
+    images, _ = ae_train.generate_samples(sample_size)
+    latents = np.array(list(map(ae_model.calculate_feature, images)))
+
+    # cluster the data 
+    clustering = cl.ClusteringKMeans(num_clusters, batch_size, latents)
+
+    # saving results
+    joblib.dump(clustering, os.path.join(model_folder, "clustering.pkl"))
+    with open(log_file, 'wt', 1) as f:
+        score = clustering.score(latents)
+        writer = csv.writer(f)
+        writer.writerow(score)
 
 # ---------------------------------
 # Q-learning
 elif args.mode == 3:
-    pass
+    path = "sg"
+    sample_size = 5000
+    table_folder, log_file = create_folders(generate_folder('q'))
+    env_name = 'Breakout-v0'
+    
+    # generate data from the environment
+    ae_model = load_model(CNNSparseAE(), path)
+    images, _ = ae_train.generate_samples(sample_size, environment=env_name)
+    latents = np.array(list(map(ae_model.calculate_feature, images)))
 
+    # read back the clustering model
+    clustering = joblib.load(path)
+
+    # run the q -learning algorithm
+    params = {}
+    params['max_iter'] = 200
+    params['gamma'] = 0.95
+    params['epsilon_0'] = 0.9
+    params['epsilon_min'] = 0.05
+    params['epsilon_delta'] = (0.9 - 0.05) / 100.0
+    params['eval_freq'] = 10
+    
+    f = open(log_file, 'at', 1)
+    csv_writer = csv.writer(f)
+    def save_records(returns):
+        avg_ret = np.array(returns).mean()
+        csv_writer.writerow(avg_ret)
+
+    q = Q(clustering, env_name, False, table_folder)
+    q.train(params, callback=save_records)
+
+
+    f.close()
 
 print('Finished!')

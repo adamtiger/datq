@@ -20,6 +20,13 @@ def get_device(cpu_anyway=False, gpu_id=0):
     cuda.set_device(gpu_id)
     return device
 
+def save_model(model, path):
+    torch.save(model.state_dict(), path)
+
+def load_model(model, path):
+    model.load_state_dict(torch.load(path, map_location='cpu'))
+    return model
+
 
 class TrainLoader:
 
@@ -68,7 +75,7 @@ class Train:
         print("\n")
     
     def save(self, path):
-        torch.save(self.model.state_dict(), path)
+        save_model(self.model, path)
 
 
 class BasicCae(nn.Module):
@@ -118,7 +125,7 @@ class CNNSparseAE(nn.Module):
     and use a clear commit or tag in git.
     Save the configuration in each run.
     '''
-    def __init__(self, beta, rho):
+    def __init__(self, beta=0.2, rho=0.05):
         super(CNNSparseAE, self).__init__()
         
         self.beta = beta # the factor for the regularization term
@@ -129,9 +136,9 @@ class CNNSparseAE(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
         self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
         self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
-        self.fc_e = nn.Linear(640, 100, bias=True)
+        self.fc_e = nn.Linear(640, 50, bias=True)
 
-        self.fc_d = nn.Linear(100, 640, bias=True)
+        self.fc_d = nn.Linear(50, 640, bias=True)
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
@@ -152,7 +159,7 @@ class CNNSparseAE(nn.Module):
         self.u = x_
 
         # calculate reg loss
-        self.reg_loss = self.u.mean(0).sum() * 0.0 # self.calculate_reg_loss()
+        self.reg_loss = self.calculate_reg_loss()
         
         # decoding
         y_ = F.relu(self.fc_d(self.u))

@@ -7,7 +7,7 @@ class ClusteringKMeans:
     def __init__(self, num_clusters, batch_size, X=None):
         self.num_clusters = num_clusters
         self.batch_size = batch_size
-        self.kmeans = MiniBatchKMeans(num_clusters, batch_size==batch_size)
+        self.kmeans = MiniBatchKMeans(num_clusters, batch_size==batch_size, verbose=True)
         if X is not None:
             self.kmeans.fit(X)
 
@@ -22,3 +22,5 @@ class ClusteringKMeans:
     def fit(self, X):
         self.kmeans.fit(X)
 
+    def score(self, X):
+        return self.kmeans.score(X)

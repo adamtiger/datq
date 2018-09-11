@@ -17,7 +17,7 @@ _CONST_learning_curve = "lrn.png"
 _CONST_input = "input.png"
 _CONST_output = "output.png"
 
-def generate_batch(batch_size, environment='Breakout-v0'):
+def generate_samples(batch_size, flat=False, environment='Breakout-v0'):
     '''
     batch_size - the number of images to generate during a run
     environment - name of the OpenAI like environment
@@ -26,8 +26,13 @@ def generate_batch(batch_size, environment='Breakout-v0'):
     env = gym.make(environment)
 
     # generate images
-    return E.generate_random_trajectory(batch_size, env)
-
+    images, dones =  E.generate_random_trajectory(batch_size, env)
+    images = E.preprocess_batch(images)
+    images, dones = E.concatenate(images, dones)
+    if flat:
+        images = E.flatten(images)
+    
+    return images, dones
 
 def train_ae(ae_model, params, callback=None):
     '''
@@ -40,17 +45,13 @@ def train_ae(ae_model, params, callback=None):
         print("Iteration (starting): [%d]"%i)
 
         # create a batch for the outer loop
-        images, dones = generate_batch(params['outer_batch'], environment='Breakout-v0') # random_image(outer_batch)
-        images = E.preprocess_batch(images)
-        images, _ = E.concatenate(images, dones)
-        if params['flat']:
-            images = E.flatten(images)
+        images, _ = generate_samples(params['outer_batch'], params['flat'], environment='Breakout-v0') # random_image(outer_batch)
         trainloader = TrainLoader(images, params['inner_batch']).get_trainloader()
         
         trainer = Train(ae_model, device, params['epochs'], params['lr'])
         trainer.fit(trainloader, callback=callback)
         if (i+1) % 10 == 0:
-            trainer.save(params['folder'] + _CONST_model_weights + str(i) + ".pt")
+            trainer.save(os.path.join(params['folder'], _CONST_model_weights + str(i) + ".pt"))
     
     return ae_model
 
@@ -115,9 +116,7 @@ def plot_input_output(ae_model, path=None, verbose=False):
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
-    imgs, dones = generate_batch(20)
-    imgs = E.preprocess_batch(imgs)
-    imgs, _ = E.concatenate(imgs, dones)
+    imgs, _ = generate_batch(20)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)
@@ -135,4 +134,3 @@ def plot_input_output(ae_model, path=None, verbose=False):
         plt.savefig(pp_folder(path, _CONST_output))
     if verbose:
         plt.show()
-
