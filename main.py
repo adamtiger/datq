@@ -48,11 +48,12 @@ if args.mode == 1:
     params['epochs'] = 5
     params['outer_batch'] = 20000
     params['inner_batch'] = 128
+    params['flat'] = False
     weight_folder, log_file = create_folders(generate_folder('ae'))
     params['folder'] = weight_folder
     ae_train.file_name = log_file
 
-    ae_model = CNNSparseAE(0.2, 0.05)
+    ae_model = CNNSparseAE(150, 0.05)
     _ = ae_train.train_ae(ae_model, params, callback=ae_train.followup_performance)
     ae_train.plot_learning_curve(log_file)
     ae_train.plot_input_output(

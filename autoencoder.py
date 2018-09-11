@@ -172,9 +172,9 @@ class CNNSparseAE(nn.Module):
         return torch.sigmoid(y_)
         
     def calculate_reg_loss(self):
-        rho_ = self.u.mean(0) # average activations for each node
+        rho_ = self.u.mean(0) + 1e-10 # average activations for each node
         rho = self.rho
-        kl_div = rho * torch.log(rho/rho_) + (1-rho) * torch.log((1-rho)/(1-rho_)) # KL divergence for avg. activation
+        kl_div = rho * torch.log(rho/rho_ + 1e-10) + (1-rho) * torch.log((1-rho)/(1-rho_) + 1e-10) # KL divergence for avg. activation
         return self.beta * kl_div.sum()/rho_.size(0)
     
     def calculate_feature(self, x):
