@@ -99,7 +99,7 @@ def plot_learning_curve(file, verbose=False):
     y_rec = df['loss_rec']
     y_reg = df['loss_reg']
     plt.plot(x, y_rec, 'yo', x, y_reg, 'ro')
-    file.replace(file.split(os.sep)[-1], _CONST_learning_curve)
+    file = file.replace(file.split(os.sep)[-1], _CONST_learning_curve)
     plt.savefig(file)
     if verbose:
         plt.show()
@@ -111,12 +111,12 @@ def plot_input_output(ae_model, path=None, verbose=False):
         items = path.split(os.sep)
         old = os.path.join(items[-2], items[-1])
         new = new_name
-        path.replace(old, new)
+        path = path.replace(old, new)
         return path
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
-    imgs, _ = generate_batch(20)
+    imgs, _ = generate_samples(20)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)

@@ -1,6 +1,11 @@
 .vscode
 
 __pycache__/
+
 *.csv
+
 *.pt
+
 *.pyc
+*.png
+*.jpg
