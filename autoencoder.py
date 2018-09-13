@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import grad 
 import torch.utils.data as DT
-from losses import ImportanceWeightedBCELoss
+from losses import ImportanceWeightedBernoulliKLdivLoss
 
 
 def get_device(cpu_anyway=False, gpu_id=0):
@@ -47,7 +47,7 @@ class Train:
         self.model.to(device)
         self.device = device
         self.epochs = epochs
-        self.criterion = ImportanceWeightedBCELoss()
+        self.criterion = ImportanceWeightedBernoulliKLdivLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
     
     def fit(self, X, callback=None):

@@ -4,6 +4,7 @@ import csv
 import torch
 import numpy as np
 import pandas as pd
+from autoencoder import CNNSparseAE
 from skimage.color import rgb2grey
 from skimage.transform import resize
 from skimage.util import crop
@@ -45,7 +46,7 @@ def train_ae(ae_model, params, callback=None):
         print("Iteration (starting): [%d]"%i)
 
         # create a batch for the outer loop
-        images, _ = generate_samples(params['outer_batch'], params['flat'], environment='Breakout-v0') # random_image(outer_batch)
+        images, _ = generate_samples(params['outer_batch'], params['flat'], params['env']) # random_image(outer_batch)
         trainloader = TrainLoader(images, params['inner_batch']).get_trainloader()
         
         trainer = Train(ae_model, device, params['epochs'], params['lr'])
@@ -134,3 +135,21 @@ def plot_input_output(ae_model, path=None, verbose=False):
         plt.savefig(pp_folder(path, _CONST_output))
     if verbose:
         plt.show()
+
+def evaluate_ae(num_samples, weight_path, cropping, env_name):
+    
+    ae_model = CNNSparseAE(0.0, 0.05)
+    ae_model.load_state_dict(torch.load(weight_path, map_location='cpu'))
+
+    images, _ = generate_samples(num_samples, environment=env_name)
+    ball_bars = []
+
+    for img in images:
+        ball_bars.append(img[cropping[0]:cropping[1], cropping[2]:cropping[3]])
+    
+    # save images
+
+    # calculate and save BCE loss
+    
+
+

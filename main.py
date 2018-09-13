@@ -44,22 +44,23 @@ if args.mode == 1:
     params = {}
     params['gpu_id'] = 0
     params['lr'] = 5e-4
-    params['iterations'] = 120
+    params['iterations'] = 100
     params['epochs'] = 5
     params['outer_batch'] = 20000
     params['inner_batch'] = 128
     params['flat'] = False
+    params['env'] = 'Pong-v0'
     weight_folder, log_file = create_folders(generate_folder('ae'))
     params['folder'] = weight_folder
     ae_train.file_name = log_file
 
     ae_model = CNNSparseAE(150, 0.05)
     _ = ae_train.train_ae(ae_model, params, callback=ae_train.followup_performance)
-    ae_train.plot_learning_curve(log_file)
-    ae_train.plot_input_output(
-        ae_model, 
-        path=os.path.join(weight_folder, ae_train._CONST_model_weights + str(params['iteration'] - 1) + '.pt')
-    )
+    #ae_train.plot_learning_curve(log_file)
+    #ae_train.plot_input_output(
+    #    ae_model, 
+    #    path=os.path.join(weight_folder, ae_train._CONST_model_weights + str(params['iteration'] - 1) + '.pt')
+    #)
 
 # ---------------------------------
 # Clustering
@@ -118,7 +119,6 @@ elif args.mode == 3:
 
     q = Q(clustering, env_name, False, table_folder)
     q.train(params, callback=save_records)
-
 
     f.close()
 
