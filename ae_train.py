@@ -105,7 +105,7 @@ def plot_learning_curve(file, verbose=False):
     if verbose:
         plt.show()
 
-def plot_input_output(ae_model, path=None, verbose=False):
+def plot_input_output(ae_model, environment='Breakout-v0', path=None, verbose=False):
     
     # parent folder of parent folder
     def pp_folder(path, new_name):
@@ -117,7 +117,7 @@ def plot_input_output(ae_model, path=None, verbose=False):
     
     if path is not None:
         ae_model.load_state_dict(torch.load(path, map_location='cpu'))
-    imgs, _ = generate_samples(20)
+    imgs, _ = generate_samples(20, environment=environment)
     img = torch.tensor(imgs[0], dtype=torch.float32).view(1, 4, 108, 84)
 
     y = ae_model(img)

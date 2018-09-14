@@ -1,6 +1,6 @@
 import argparse
 import ae_train
-from autoencoder import CNNSparseAE, load_model
+from autoencoder import CNNSparseAE, load_model, convert_numpy2torch
 import clustering as cl
 from sklearn.externals import joblib
 import numpy as np
@@ -44,7 +44,7 @@ if args.mode == 1:
     params = {}
     params['gpu_id'] = 0
     params['lr'] = 5e-4
-    params['iterations'] = 100
+    params['iterations'] = 20
     params['epochs'] = 5
     params['outer_batch'] = 20000
     params['inner_batch'] = 128
@@ -54,27 +54,31 @@ if args.mode == 1:
     params['folder'] = weight_folder
     ae_train.file_name = log_file
 
-    ae_model = CNNSparseAE(150, 0.05)
+    ae_model = CNNSparseAE(0.00, 0.05)
     _ = ae_train.train_ae(ae_model, params, callback=ae_train.followup_performance)
-    #ae_train.plot_learning_curve(log_file)
+    #ae_train.plot_learning_curve("experiments/ae20180914110110/logs.csv")
     #ae_train.plot_input_output(
-    #    ae_model, 
-    #    path=os.path.join(weight_folder, ae_train._CONST_model_weights + str(params['iteration'] - 1) + '.pt')
+    #    ae_model,
+    #    environment = params['env'],
+    #    path="experiments/ae20180914110110/weights/model_weights9.pt"#os.path.join(weight_folder, ae_train._CONST_model_weights + str(params['iteration'] - 1) + '.pt')
     #)
 
 # ---------------------------------
 # Clustering
 elif args.mode == 2:
-    path = "sg"
+    path = "experiments/model_weights119.pt"
     sample_size = 5000
-    num_clusters = 250
-    batch_size = 32
+    num_clusters = 50
+    batch_size = 256
     model_folder, log_file = create_folders(generate_folder('c'))
     
     # generate data from the environment
+    print("Generate data.")
     ae_model = load_model(CNNSparseAE(), path)
     images, _ = ae_train.generate_samples(sample_size)
-    latents = np.array(list(map(ae_model.calculate_feature, images)))
+    tc_imgs = convert_numpy2torch(images)
+    tc_latents = list(map(ae_model.calculate_feature, tc_imgs))
+    latents = np.concatenate(list(map(lambda x: x.detach().numpy(), tc_latents)))
 
     # cluster the data 
     clustering = cl.ClusteringKMeans(num_clusters, batch_size, latents)
@@ -82,9 +86,9 @@ elif args.mode == 2:
     # saving results
     joblib.dump(clustering, os.path.join(model_folder, "clustering.pkl"))
     with open(log_file, 'wt', 1) as f:
-        score = clustering.score(latents)
+        score = clustering.score(latents).tolist()
         writer = csv.writer(f)
-        writer.writerow(score)
+        writer.writerow([score])
 
 # ---------------------------------
 # Q-learning

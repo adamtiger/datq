@@ -27,6 +27,13 @@ def load_model(model, path):
     model.load_state_dict(torch.load(path, map_location='cpu'))
     return model
 
+def convert_numpy2torch(np_list):
+    torch_list = []
+    for item in np_list:
+        t = torch.Tensor(item).unsqueeze(0)
+        torch_list.append(t)
+    return torch_list
+
 
 class TrainLoader:
 
@@ -57,8 +64,7 @@ class Train:
         for epoch in range(self.epochs):
             for i, data in enumerate(X, 0):
                 x = data[0]
-                y_real = torch.max(torch.min(x, torch.tensor(1.0)), torch.tensor(0.0))
-                y_real = y_real.to(self.device) # input is the same as the output (autoencoder)
+                y_real = x.to(self.device) # input is the same as the output (autoencoder)
                 y_model = self.model(y_real)
                 
                 self.optimizer.zero_grad()
@@ -136,9 +142,9 @@ class CNNSparseAE(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
         self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
         self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
-        self.fc_e = nn.Linear(640, 30, bias=True)
+        self.fc_e = nn.Linear(640, 500, bias=True)
 
-        self.fc_d = nn.Linear(30, 640, bias=True)
+        self.fc_d = nn.Linear(500, 640, bias=True)
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
@@ -172,9 +178,10 @@ class CNNSparseAE(nn.Module):
         return torch.sigmoid(y_)
         
     def calculate_reg_loss(self):
-        rho_ = self.u.mean(0) + 1e-10 # average activations for each node
+        eps = 1e-15
+        rho_ = self.u.mean(0) # average activations for each node
         rho = self.rho
-        kl_div = rho * torch.log(rho/rho_ + 1e-10) + (1-rho) * torch.log((1-rho)/(1-rho_) + 1e-10) # KL divergence for avg. activation
+        kl_div = rho * torch.log(rho/(rho_ + eps) + eps) + (1-rho) * torch.log((1-rho)/(1-rho_ + eps) + eps) # KL divergence for avg. activation
         return self.beta * kl_div.sum()/rho_.size(0)
     
     def calculate_feature(self, x):
