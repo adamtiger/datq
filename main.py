@@ -93,7 +93,7 @@ elif args.mode == 2:
 # ---------------------------------
 # Q-learning
 elif args.mode == 3:
-    path = "sg"
+    path = "experiments/c20180914124130/weights/clustering.pkl"
     sample_size = 5000
     table_folder, log_file = create_folders(generate_folder('q'))
     env_name = 'Breakout-v0'

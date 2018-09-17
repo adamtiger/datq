@@ -7,7 +7,7 @@ from environment import Environment as E
 
 class Q:
 
-    def __init__(self, clustering, env_name, record_video, folder):
+    def __init__(self, clustering, env_name, record_video=False, folder=''):
         '''
         This class trains a Q-table. The input state is derived from the clustered
         encoded state.
@@ -15,7 +15,7 @@ class Q:
         clustering - a function to determine which cluster the next processed input corresponds to
         env_name - name of the Atari environment
         record_video - record a video about the agent during evaluation
-        folder - 
+        folder - folder for saving videos, logs and resulting q-table
         '''
         self.clustering = clustering
         self.env_name = env_name
