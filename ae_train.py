@@ -147,9 +147,27 @@ def evaluate_ae(num_samples, weight_path, cropping, env_name):
     for img in images:
         ball_bars.append(img[cropping[0]:cropping[1], cropping[2]:cropping[3]])
     
+    # calculate the reconstructed image
+    img_recon = list(map(ae_model, ball_bars))
+    
     # save images
+    base = 'img'
+    original = 'orig'
+    recon = 'recon'
+    if not os.path.exists(base):
+        os.mkdir(base)
+        if not os.path.exists(os.path.join(base, original)):
+            os.mkdir(os.path.join(base, original))
+        if not os.path.exists(os.path.join(base, recon)):
+            os.mkdir(os.path.join(base, recon))
+    
+    temp1 = os.path.join(base, original)
+    temp2 = os.path.join(base, recon)
+    for i in range(len(ball_bars)):
+        plt.imsave(fname=os.path.join(temp1, 'img' + str(i)), arr=ball_bars[i], format='png')
+        plt.imsave(fname=os.path.join(temp2, 'img' + str(i)), arr=img_recon[i], format='png')
 
-    # calculate and save BCE loss
+    print('Images were created and saved')
     
 
 
