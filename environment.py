@@ -95,7 +95,8 @@ class Environment:
 
         if done:
             img = self.env.reset()
-            self.observation_as_list = [img] * self.length
+            fi = Environment.preprocess(image, self.threshold)
+            self.observation_as_list = [fi] * self.length
         
         return (self.observation, action, reward, done)
     

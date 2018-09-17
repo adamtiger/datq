@@ -27,12 +27,11 @@ def load_model(model, path):
     model.load_state_dict(torch.load(path, map_location='cpu'))
     return model
 
-def convert_numpy2torch(np_list):
-    torch_list = []
-    for item in np_list:
-        t = torch.Tensor(item).unsqueeze(0)
-        torch_list.append(t)
-    return torch_list
+def numpy2torch(array):
+    return torch.Tensor(array).unsqueeze(0)
+
+def numpy2torch_list(np_list):
+    return list(map(numpy2torch, np_list))
 
 
 class TrainLoader:

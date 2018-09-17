@@ -4,10 +4,11 @@ from sklearn.cluster import MiniBatchKMeans
 
 class ClusteringKMeans:
 
-    def __init__(self, num_clusters, batch_size, X=None):
+    def __init__(self, num_clusters, batch_size, verbose=True, X=None):
         self.num_clusters = num_clusters
         self.batch_size = batch_size
-        self.kmeans = MiniBatchKMeans(num_clusters, batch_size=batch_size, verbose=True)
+        self.verbose = verbose
+        self.kmeans = MiniBatchKMeans(num_clusters, batch_size=batch_size, verbose=self.verbose)
         if X is not None:
             self.kmeans.fit(X)
 

@@ -1,6 +1,6 @@
 import argparse
 import ae_train
-from autoencoder import CNNSparseAE, load_model, convert_numpy2torch
+from autoencoder import CNNSparseAE, load_model, numpy2torch_list
 import clustering as cl
 from sklearn.externals import joblib
 import numpy as np
@@ -76,7 +76,7 @@ elif args.mode == 2:
     print("Generate data.")
     ae_model = load_model(CNNSparseAE(), path)
     images, _ = ae_train.generate_samples(sample_size)
-    tc_imgs = convert_numpy2torch(images)
+    tc_imgs = numpy2torch_list(images)
     tc_latents = list(map(ae_model.calculate_feature, tc_imgs))
     latents = np.concatenate(list(map(lambda x: x.detach().numpy(), tc_latents)))
 
@@ -94,22 +94,20 @@ elif args.mode == 2:
 # Q-learning
 elif args.mode == 3:
     path_ae = "experiments/ae20180914130809/weights/model_weights19.pt"
-    path_cl = "experiments/c20180914124130/weights/clustering.pkl"
+    path_cl = "experiments/c20180917153834/weights/clustering.pkl"
     sample_size = 5000
     table_folder, log_file = create_folders(generate_folder('q'))
     env_name = 'Breakout-v0'
     
-    # generate data from the environment
+    # load the autoencoder model
     ae_model = load_model(CNNSparseAE(), path_ae)
-    images, _ = ae_train.generate_samples(sample_size, environment=env_name)
-    latents = np.array(list(map(ae_model.calculate_feature, images)))
 
     # read back the clustering model
     clustering = joblib.load(path_cl)
 
-    # run the q -learning algorithm
+    # run the q-learning algorithm
     params = {}
-    params['max_iter'] = 200
+    params['max_iter'] = 50
     params['gamma'] = 0.95
     params['epsilon_0'] = 0.9
     params['epsilon_min'] = 0.05
@@ -120,9 +118,9 @@ elif args.mode == 3:
     csv_writer = csv.writer(f)
     def save_records(returns):
         avg_ret = np.array(returns).mean()
-        csv_writer.writerow(avg_ret)
-
-    q = Q(clustering, env_name, False, table_folder)
+        csv_writer.writerow([avg_ret])
+    
+    q = Q(ae_model, clustering, env_name, False, table_folder)
     q.train(params, callback=save_records)
 
     f.close()

@@ -2,22 +2,26 @@ import os
 import gym
 from gym import wrappers
 import numpy as np
+from autoencoder import numpy2torch
 from environment import Environment as E
 
 
 class Q:
 
-    def __init__(self, clustering, env_name, record_video=False, folder=''):
+    def __init__(self, ae_model, clustering, env_name, record_video=False, folder=''):
         '''
         This class trains a Q-table. The input state is derived from the clustered
         encoded state.
-
+        
+        ae_model - the autoencoder the compress the state
         clustering - a function to determine which cluster the next processed input corresponds to
         env_name - name of the Atari environment
         record_video - record a video about the agent during evaluation
         folder - folder for saving videos, logs and resulting q-table
         '''
+        self.ae_model = ae_model
         self.clustering = clustering
+        self.clustering.kmeans
         self.env_name = env_name
         self.record_video = record_video
         self.folder = folder
@@ -80,7 +84,14 @@ class Q:
     
     # ---------------------------------
     # Train and evaluate
+
+    def __state2cluster(self, state):
+        tensor = numpy2torch(state)
+        latent = self.ae_model.calculate_feature(tensor).detach().numpy() # calculate the latent vector and convert tensor to numpy
+        x = self.clustering.predict(latent)
+        return x
     
+
     def train(self, params, callback=None):
         self.__env_init()
         self.__q_table_init()
@@ -88,18 +99,19 @@ class Q:
         epsilon = params['epsilon_0']
         gamma = params['gamma']
         alpha = 1.0
-        prev_state = ev.observation
+        prev_state = self.__state2cluster(ev.observation)
 
         print("Start training.")
 
         def policy(state):
-            x = self.clustering(state)
+            x = self.__state2cluster(state)
             return self.__epsilon_greedy(x, epsilon)
 
-        for cntr in range(params['max_iter']):
+        for cntr in range(1, params['max_iter']):
 
             # take a step in the environment
-            state, action, reward, done = ev.environment_step(policy)
+            observation, action, reward, done = ev.environment_step(policy)
+            state = self.__state2cluster(observation)
 
             # update the q function
             value = (1-alpha) * self.__q_table_get(prev_state, action) + alpha * (reward + (1-done) * gamma * self.__q_table_max(state))
@@ -109,6 +121,10 @@ class Q:
             alpha = 1.0/cntr
             epsilon = max(params['epsilon_min'], epsilon - params['epsilon_delta'])
 
+            # save the current state
+            prev_state = state
+            
+            # do evaluation if necessary
             if cntr % params['eval_freq'] == 0:
                 print("Evaluation: %d%%"%int(cntr * 100 / params['max_iter']))
                 return_per_episode = self.evaluate()
@@ -122,17 +138,19 @@ class Q:
         env = E(gym.make(self.env_name))
 
         def policy(state):
-            x = self.clustering(state)
+            x = self.__state2cluster(state)
             return self.__policy(x)
 
         return_per_episode = []
         utility = 0.0
         for _ in range(20):
-            # take a step in the environment
-            _, _, reward, done = env.environment_step(policy)
-            utility += reward
-            if done:
-                return_per_episode.append(utility)
-                utility = 0.0
+            done = False
+            while not done:
+                # take a step in the environment
+                _, _, reward, done = env.environment_step(policy)
+                utility += reward
+                if done:
+                    return_per_episode.append(utility)
+                    utility = 0.0
         return return_per_episode
         
