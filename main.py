@@ -66,7 +66,7 @@ if args.mode == 1:
 # ---------------------------------
 # Clustering
 elif args.mode == 2:
-    path = "experiments/model_weights119.pt"
+    path = "experiments/ae20180914130809/weights/model_weights19.pt"
     sample_size = 5000
     num_clusters = 50
     batch_size = 256
@@ -93,18 +93,19 @@ elif args.mode == 2:
 # ---------------------------------
 # Q-learning
 elif args.mode == 3:
-    path = "experiments/c20180914124130/weights/clustering.pkl"
+    path_ae = "experiments/ae20180914130809/weights/model_weights19.pt"
+    path_cl = "experiments/c20180914124130/weights/clustering.pkl"
     sample_size = 5000
     table_folder, log_file = create_folders(generate_folder('q'))
     env_name = 'Breakout-v0'
     
     # generate data from the environment
-    ae_model = load_model(CNNSparseAE(), path)
+    ae_model = load_model(CNNSparseAE(), path_ae)
     images, _ = ae_train.generate_samples(sample_size, environment=env_name)
     latents = np.array(list(map(ae_model.calculate_feature, images)))
 
     # read back the clustering model
-    clustering = joblib.load(path)
+    clustering = joblib.load(path_cl)
 
     # run the q -learning algorithm
     params = {}
