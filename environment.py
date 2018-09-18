@@ -94,7 +94,7 @@ class Environment:
         self.observation = np.array(self.observation_as_list)
 
         if done:
-            img = self.env.reset()
+            image = self.env.reset()
             fi = Environment.preprocess(image, self.threshold)
             self.observation_as_list = [fi] * self.length
         
