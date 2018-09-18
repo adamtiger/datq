@@ -26,8 +26,6 @@ class Environment:
         temp_ = crop(temp_, ((20, 12), (0, 0))) # empirical investigation (crops the playing area)
         # rescale
         temp_ = resize(temp_, (108, 84))
-        # scale between 0 and 1 but not normalized for the whole image instead pixelwise
-        temp_ = temp_ / 255.0
         return temp_
     
     @staticmethod
