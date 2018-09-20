@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import grad 
 import torch.utils.data as DT
-from losses import ImportanceWeightedBernoulliKLdivLoss
+from losses import ImportanceWeightedBernoulliKLdivLoss, batch_importance
 
 
 def get_device(cpu_anyway=False, gpu_id=0):
@@ -53,7 +53,7 @@ class Train:
         self.model.to(device)
         self.device = device
         self.epochs = epochs
-        self.criterion = ImportanceWeightedBernoulliKLdivLoss()
+        self.criterion = ImportanceWeightedBernoulliKLdivLoss(batch_importance)
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
     
     def fit(self, X, callback=None):
@@ -83,46 +83,7 @@ class Train:
         save_model(self.model, path)
 
 
-class BasicCae(nn.Module):
-    '''
-    This is a simple Contractive Autoencoder.
-    The imeplementation uses a direct calculation of the 
-    Frobenius norm instead of using the autograd functions.
-    Unfortunately, to create deeper CAE requires to calculate 
-    the gradients manually (or analytically) and this is not
-    flexible.
-    '''
- 
-    def __init__(self, input_size=84*84*4, feature_size=1500):
-        super(BasicCae, self).__init__()
-
-        self.input_size = input_size
-        self.feature_size = feature_size
-        self.reg_loss = 0.0
-        self.lin_enc = nn.Linear(self.input_size, self.feature_size)
-        self.lin_dec = nn.Linear(self.feature_size, self.input_size)
-    
-    def forward(self, x): # should be x.requires_grad=True
-        x.requires_grad=True
-        self.y_enc = nn.Sigmoid()(self.lin_enc(x))
-        self.reg_loss = self.jacobi_loss_calc()
-        y_out = nn.Sigmoid()(self.lin_dec(self.y_enc))
-        return y_out
-
-    def jacobi_loss_calc(self):
-        y = self.y_enc
-        sigmoid_der = y * (1-y)
-        w = list(self.lin_enc.parameters())[0]
-        sigmoid_der_2 = sigmoid_der**2
-        w_2 = w**2
-        return sigmoid_der_2.matmul(w_2).sum()
-    
-    def calculate_feature(self, x):
-        self(x) # we do not need the output just the feature at the middle
-        return self.y_enc
-
-
-class CNNSparseAE(nn.Module):
+class CNNControlAE(nn.Module):
     '''
     This encoder is based on a CNN and a KL divergence 
     which ensures sparse encoding.
@@ -130,20 +91,23 @@ class CNNSparseAE(nn.Module):
     and use a clear commit or tag in git.
     Save the configuration in each run.
     '''
-    def __init__(self, beta=0.2, rho=0.05):
-        super(CNNSparseAE, self).__init__()
+    def __init__(self, reg_loss, sigma=0.001):
+        super(CNNControlAE, self).__init__()
         
-        self.beta = beta # the factor for the regularization term
-        self.rho = rho   # the expected average activation in the encoder layer
+        self.reg_loss = reg_loss
+        self.sigma = sigma
+        latent_size = 500
 
         # encoder part
         self.conv1 = nn.Conv2d(4, 32, (8, 8), stride=4)
         self.conv2 = nn.Conv2d(32, 64, (4, 4), stride=2)
         self.conv3 = nn.Conv2d(64, 64, (3, 3), stride=1)
         self.conv4 = nn.Conv2d(64, 16, (3, 3), stride=1)
-        self.fc_e = nn.Linear(640, 500, bias=True)
+        self.fc_e = nn.Linear(640, latent_size, bias=True)
+        
+        self.noise = torch.normal(torch.zeros(latent_size), self.sigma * torch.ones(latent_size))
 
-        self.fc_d = nn.Linear(500, 640, bias=True)
+        self.fc_d = nn.Linear(latent_size, 640, bias=True)
         self.deconv1 = nn.ConvTranspose2d(16, 16, (3, 3), stride=1)
         self.deconv2 = nn.ConvTranspose2d(16, 64, (3, 3), stride=1)
         self.deconv3 = nn.ConvTranspose2d(64, 64, (4, 4), stride=2)
@@ -151,7 +115,6 @@ class CNNSparseAE(nn.Module):
         self.deconv5 = nn.ConvTranspose2d(32, 4, (1, 1), stride=1)
 
         self.u = 0.0
-        self.reg_loss = 0.0
 
     def forward(self, x):
         # encoding
@@ -164,7 +127,7 @@ class CNNSparseAE(nn.Module):
         self.u = x_
 
         # calculate reg loss
-        self.reg_loss = self.calculate_reg_loss()
+        self.reg_loss = self.reg_loss(self.u)
         
         # decoding
         y_ = F.relu(self.fc_d(self.u))
@@ -175,13 +138,6 @@ class CNNSparseAE(nn.Module):
         y_ = F.relu(self.deconv4(y_))
         y_ = self.deconv5(y_)
         return torch.sigmoid(y_)
-        
-    def calculate_reg_loss(self):
-        eps = 1e-15
-        rho_ = self.u.mean(0) # average activations for each node
-        rho = self.rho
-        kl_div = rho * torch.log(rho/(rho_ + eps) + eps) + (1-rho) * torch.log((1-rho)/(1-rho_ + eps) + eps) # KL divergence for avg. activation
-        return self.beta * kl_div.sum()/rho_.size(0)
     
     def calculate_feature(self, x):
         self(x) # we do not need the output just the feature at the middle

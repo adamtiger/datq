@@ -1,6 +1,7 @@
 import argparse
 import ae_train
-from autoencoder import CNNSparseAE, load_model, numpy2torch_list
+from autoencoder import CNNControlAE, load_model, numpy2torch_list
+from losses import sparsity_loss
 import clustering as cl
 from sklearn.externals import joblib
 import numpy as np
@@ -54,7 +55,7 @@ if args.mode == 1:
     params['folder'] = weight_folder
     ae_train.file_name = log_file
 
-    ae_model = CNNSparseAE(0.00, 0.05)
+    ae_model = CNNControlAE(lambda u: sparsity_loss(u, 0.05, 0.00)) # latent, rho, beta
     _ = ae_train.train_ae(ae_model, params, callback=ae_train.followup_performance)
     #ae_train.plot_learning_curve("experiments/ae20180914110110/logs.csv")
     #ae_train.plot_input_output(
@@ -74,7 +75,7 @@ elif args.mode == 2:
     
     # generate data from the environment
     print("Generate data.")
-    ae_model = load_model(CNNSparseAE(), path)
+    ae_model = load_model(CNNControlAE(lambda u: sparsity_loss(u, 0.05, 0.00)), path)
     images, _ = ae_train.generate_samples(sample_size)
     tc_imgs = numpy2torch_list(images)
     tc_latents = list(map(ae_model.calculate_feature, tc_imgs))
@@ -100,7 +101,7 @@ elif args.mode == 3:
     env_name = 'Breakout-v0'
     
     # load the autoencoder model
-    ae_model = load_model(CNNSparseAE(), path_ae)
+    ae_model = load_model(CNNControlAE(lambda u: sparsity_loss(u, 0.05, 0.00)), path_ae)
 
     # read back the clustering model
     clustering = joblib.load(path_cl)
