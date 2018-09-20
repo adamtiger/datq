@@ -45,7 +45,7 @@ if args.mode == 1:
     params = {}
     params['gpu_id'] = 0
     params['lr'] = 5e-4
-    params['iterations'] = 50
+    params['iterations'] = 80
     params['epochs'] = 5
     params['outer_batch'] = 20000
     params['inner_batch'] = 128

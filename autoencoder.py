@@ -91,12 +91,12 @@ class CNNControlAE(nn.Module):
     and use a clear commit or tag in git.
     Save the configuration in each run.
     '''
-    def __init__(self, reg_loss, sigma=0.001):
+    def __init__(self, reg_loss, sigma=1e-6):
         super(CNNControlAE, self).__init__()
         
-        self.reg_loss = reg_loss
+        self.calculate_reg_loss = reg_loss
         self.sigma = sigma
-        latent_size = 500
+        latent_size = 50
 
         # encoder part
         self.conv1 = nn.Conv2d(4, 32, (8, 8), stride=4)
@@ -115,6 +115,7 @@ class CNNControlAE(nn.Module):
         self.deconv5 = nn.ConvTranspose2d(32, 4, (1, 1), stride=1)
 
         self.u = 0.0
+        self.reg_loss = 0.0
 
     def forward(self, x):
         # encoding
@@ -127,7 +128,7 @@ class CNNControlAE(nn.Module):
         self.u = x_
 
         # calculate reg loss
-        self.reg_loss = self.reg_loss(self.u)
+        self.reg_loss = self.calculate_reg_loss(self.u)
         
         # decoding
         y_ = F.relu(self.fc_d(self.u))
