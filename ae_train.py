@@ -4,13 +4,14 @@ import csv
 import torch
 import numpy as np
 import pandas as pd
-from autoencoder import CNNSparseAE
+from losses import sparsity_loss
+from skimage.util import crop
 from skimage.color import rgb2grey
 from skimage.transform import resize
-from skimage.util import crop
-from autoencoder import TrainLoader, BasicCae, get_device, Train
+from autoencoder import TrainLoader, get_device, Train, CNNControlAE
 from environment import Environment as E
 from matplotlib import pyplot as plt
+
 
 # Fixed names for files.
 _CONST_model_weights = "model_weights"
@@ -138,7 +139,7 @@ def plot_input_output(ae_model, environment='Breakout-v0', path=None, verbose=Fa
 
 def evaluate_ae(num_samples, weight_path, cropping, env_name):
     
-    ae_model = CNNSparseAE(0.0, 0.05)
+    ae_model = CNNControlAE(lambda u: sparsity_loss(u, 0.05, 0.00), 0.0)
     ae_model.load_state_dict(torch.load(weight_path, map_location='cpu'))
 
     images, _ = generate_samples(num_samples, environment=env_name)
